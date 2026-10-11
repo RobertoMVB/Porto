@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -120,14 +121,15 @@ class AtividadeEconomicaCnaeServiceImplTest {
             verify(repository).buscarPorDescricaoContendo("programas");
         }
 
-        @Test
-        @DisplayName("espacos internos sao mantidos")
-        void espacosInternosSaoMantidos() {
-            when(repository.buscarPorDescricaoContendo("de  programas")).thenReturn(List.of());
+        @ParameterizedTest(name = "termo [{0}]")
+        @ValueSource(strings = {"de  programas", "de\tprogramas", "  de   programas  ", "de\u00A0programas", "de\u00A0\u00A0 programas"})
+        @DisplayName("espacos internos repetidos, tab e NBSP viram um espaco antes de consultar")
+        void espacosInternosNormalizados(String termo) {
+            when(repository.buscarPorDescricaoContendo("de programas")).thenReturn(List.of(CNAE_6201, CNAE_6202));
 
-            service.buscarPorDescricao("  de  programas  ");
+            assertThat(service.buscarPorDescricao(termo)).hasSize(2);
 
-            verify(repository).buscarPorDescricaoContendo("de  programas");
+            verify(repository).buscarPorDescricaoContendo("de programas");
         }
 
         @Test
@@ -161,13 +163,15 @@ class AtividadeEconomicaCnaeServiceImplTest {
         }
 
         @Test
-        @DisplayName("NBSP (U+00A0) nao e removido pelo strip: chega ao repositorio (limitacao conhecida)")
-        void nbspNaoEhRemovido() {
-            when(repository.buscarPorDescricaoContendo(" programas")).thenReturn(List.of());
+        @DisplayName("NBSP (U+00A0), U+2007, U+202F e caracteres invisiveis nas pontas sao removidos")
+        void nbspEInvisiveisRemovidos() {
+            when(repository.buscarPorDescricaoContendo("programas")).thenReturn(List.of(CNAE_6201));
 
-            assertThat(service.buscarPorDescricao(" programas")).isEmpty();
+            service.buscarPorDescricao("\u00A0programas\u202F");
+            service.buscarPorDescricao("\u2007programas\u200B");
+            service.buscarPorDescricao("\uFEFFprogramas");
 
-            verify(repository).buscarPorDescricaoContendo(" programas");
+            verify(repository, times(3)).buscarPorDescricaoContendo("programas");
         }
 
         @Test
@@ -194,7 +198,7 @@ class AtividadeEconomicaCnaeServiceImplTest {
         }
 
         @ParameterizedTest(name = "termo [{0}]")
-        @ValueSource(strings = {"", " ", "   ", "\t", "\n", " \t\n ", " "})
+        @ValueSource(strings = {"", " ", "   ", "\t", "\n", " \t\n ", "\u2003", "\u00A0", "\u00A0\u202F\u2007", "\u200B"})
         @DisplayName("termo vazio ou so com espacos lanca CNAE-VAL-0002 e nao consulta o banco")
         void termoEmBrancoLancaErro(String termo) {
             assertThatThrownBy(() -> service.buscarPorDescricao(termo))

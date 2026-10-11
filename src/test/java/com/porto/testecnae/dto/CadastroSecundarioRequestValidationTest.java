@@ -56,10 +56,24 @@ class CadastroSecundarioRequestValidationTest {
             assertThat(request.codigoCnae()).isEqualTo("6201-5/01");
         }
 
+        @ParameterizedTest(name = "nome [{0}]")
+        @ValueSource(strings = {"Tech  Porto", "Tech   Porto", "Tech\tPorto", "Tech\u00A0Porto", " Tech \u00A0 Porto ", "\u200BTech Porto"})
+        @DisplayName("espacos internos repetidos, tab, NBSP e invisiveis viram um espaco no nome")
+        void normalizaEspacosDoNome(String nome) {
+            assertThat(new CadastroSecundarioRequest(nome, CNPJ, CNAE).nomeFantasia()).isEqualTo("Tech Porto");
+        }
+
+        @ParameterizedTest(name = "documento [{0}]")
+        @ValueSource(strings = {"12.345.678/0001-95", "12345678/0001-95", "12 345 678 0001 95", "\u00A012.345.678/0001-95 "})
+        @DisplayName("documento com mascara e/ou espacos e gravado limpo")
+        void removeMascaraDoDocumento(String documento) {
+            assertThat(new CadastroSecundarioRequest(NOME, documento, CNAE).documento()).isEqualTo("12345678000195");
+        }
+
         @Test
-        @DisplayName("mantem espacos internos do nome")
-        void mantemEspacosInternos() {
-            assertThat(new CadastroSecundarioRequest("Tech  Porto", CNPJ, CNAE).nomeFantasia()).isEqualTo("Tech  Porto");
+        @DisplayName("codigoCnae com NBSP nas pontas e normalizado")
+        void normalizaCodigoCnae() {
+            assertThat(new CadastroSecundarioRequest(NOME, CNPJ, "\u00A06201-5/01\u00A0").codigoCnae()).isEqualTo("6201-5/01");
         }
 
         @Test
@@ -90,8 +104,9 @@ class CadastroSecundarioRequestValidationTest {
         }
 
         @ParameterizedTest(name = "documento [{0}]")
-        @ValueSource(strings = {"12345678000195", "12345678000199", "12ABC34501DE35", "12abc34501de35", " 12ABC34501DE35 "})
-        @DisplayName("CNPJ numerico ou alfanumerico (minusculo e com espacos e normalizado)")
+        @ValueSource(strings = {"12345678000195", "12.345.678/0001-95", "12ABC34501DE35", "12abc34501de35",
+                " 12ABC34501DE35 ", "12.ABC.345/01DE-35", "12.abc.345/01de-35"})
+        @DisplayName("CNPJ numerico ou alfanumerico, com ou sem mascara (minusculo e com espacos e normalizado)")
         void cnpjValido(String documento) {
             assertThat(validar(new CadastroSecundarioRequest(NOME, documento, CNAE))).isEmpty();
         }
@@ -159,11 +174,42 @@ class CadastroSecundarioRequestValidationTest {
         }
 
         @ParameterizedTest(name = "documento [{0}]")
-        @ValueSource(strings = {"12.345.678/0001-95", "1234567800019", "123456780001951", "abc", "12ABC34501DEAB"})
+        @ValueSource(strings = {"12.345.678/0001-9", "1234567800019", "123456780001951", "abc", "12ABC34501DEAB", "12,345,678|0001_95"})
         @DisplayName("documento fora do formato: CADSEC_VAL_0004")
         void documentoFormatoInvalido(String documento) {
             assertThat(validar(new CadastroSecundarioRequest(NOME, documento, CNAE)))
                     .containsExactly(entry("documento", "CADSEC_VAL_0004"));
+        }
+
+        @ParameterizedTest(name = "nome [{0}]")
+        @ValueSource(strings = {"\u00A0", "\u00A0\u00A0", "\u202F\u2007", "\u200B", " \u00A0\t"})
+        @DisplayName("nomeFantasia so com NBSP ou invisiveis: CADSEC_VAL_0001 (antes: passava no @NotBlank e era gravado)")
+        void nomeSoComNbsp(String nome) {
+            assertThat(validar(new CadastroSecundarioRequest(nome, CNPJ, CNAE)))
+                    .containsExactly(entry("nomeFantasia", "CADSEC_VAL_0001"));
+        }
+
+        @Test
+        @DisplayName("nome com 120 caracteres + espacos internos extras e aceito (limite conta apos normalizar)")
+        void limiteDoNomeAposNormalizar() {
+            var nome = "a".repeat(60) + "     " + "b".repeat(59);
+            assertThat(validar(new CadastroSecundarioRequest(nome, CNPJ, CNAE))).isEmpty();
+        }
+
+        @ParameterizedTest(name = "documento [{0}]")
+        @ValueSource(strings = {"12345678000199", "12.345.678/0001-99", "12ABC34501DE36"})
+        @DisplayName("documento com digito verificador invalido (com ou sem mascara): CADSEC_VAL_0006")
+        void documentoDvInvalido(String documento) {
+            assertThat(validar(new CadastroSecundarioRequest(NOME, documento, CNAE)))
+                    .containsExactly(entry("documento", "CADSEC_VAL_0006"));
+        }
+
+        @ParameterizedTest(name = "documento [{0}]")
+        @ValueSource(strings = {"00000000000000", "00.000.000/0000-00", "11111111111111"})
+        @DisplayName("documento com sequencia repetida (com ou sem mascara): CADSEC_VAL_0007")
+        void documentoSequenciaRepetida(String documento) {
+            assertThat(validar(new CadastroSecundarioRequest(NOME, documento, CNAE)))
+                    .containsExactly(entry("documento", "CADSEC_VAL_0007"));
         }
 
         @Test

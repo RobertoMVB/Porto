@@ -141,7 +141,7 @@ class CnaeInexistenteIntegrationTest {
             var antes = cadastroRepository.count();
 
             mockMvc.perform(post(URL_CADASTRO).contentType(MediaType.APPLICATION_JSON)
-                            .content(body("Tech Porto", "12345678000199", "6201-5/01")))
+                            .content(body("Tech Porto", "98765432000198", "6201-5/01")))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.cnae.codigo").value("6201-5/01"));
 
@@ -157,7 +157,7 @@ class CnaeInexistenteIntegrationTest {
             var antes = cadastroRepository.count();
 
             mockMvc.perform(post(URL_CADASTRO).contentType(MediaType.APPLICATION_JSON)
-                            .content(body("Fantasma", "00000000000000", "9999-9/99")))
+                            .content(body("Fantasma", "55667788000186", "9999-9/99")))
                     .andExpect(status().isUnprocessableContent())
                     .andExpect(jsonPath("$.code").value("CADSEC-NEG-0001"))
                     .andExpect(jsonPath("$.detail").value("Cadastro rejeitado: o CNAE '9999-9/99' nao existe."));
@@ -171,7 +171,7 @@ class CnaeInexistenteIntegrationTest {
             var antes = cadastroRepository.count();
 
             mockMvc.perform(post(URL_CADASTRO).contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"nomeFantasia\":\"Tech Porto\",\"documento\":\"12345678000199\"}"))
+                            .content("{\"nomeFantasia\":\"Tech Porto\",\"documento\":\"98765432000198\"}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("CNAE-VAL-0004"));
 
@@ -185,7 +185,7 @@ class CnaeInexistenteIntegrationTest {
             var antes = cadastroRepository.count();
 
             mockMvc.perform(post(URL_CADASTRO).contentType(MediaType.APPLICATION_JSON)
-                            .content(body("Tech Porto", "12345678000199", codigo)))
+                            .content(body("Tech Porto", "98765432000198", codigo)))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value(codigo.isEmpty() ? "CNAE-VAL-0005" : "CNAE-VAL-0006"));
 
@@ -196,7 +196,7 @@ class CnaeInexistenteIntegrationTest {
         @DisplayName("item 6: CNAE valido sem nomeFantasia agora e 400 CADSEC-VAL-0001 (antes: 500)")
         void item6Corrigido() throws Exception {
             mockMvc.perform(post(URL_CADASTRO).contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"documento\":\"12345678000199\",\"codigoCnae\":\"6201-5/01\"}"))
+                            .content("{\"documento\":\"98765432000198\",\"codigoCnae\":\"6201-5/01\"}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("CADSEC-VAL-0001"));
         }
@@ -212,7 +212,7 @@ class CnaeInexistenteIntegrationTest {
             mockMvc.perform(get(URL_CODIGO).param("codigo", "<script>alert(1)</script>"))
                     .andExpect(status().isBadRequest());
             mockMvc.perform(post(URL_CADASTRO).contentType(MediaType.APPLICATION_JSON)
-                            .content(body("Fantasma", "00000000000000", "9876-5/43")))
+                            .content(body("Fantasma", "55667788000186", "9876-5/43")))
                     .andExpect(status().isUnprocessableContent());
 
             assertThat(output)

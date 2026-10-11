@@ -107,13 +107,13 @@ class CadastroSecundarioControllerTest {
 
         private static final String URL = "/api/cadastros-secundarios";
         private static final String BODY_VALIDO =
-                "{\"nomeFantasia\":\"Tech Porto\",\"documento\":\"12345678000199\",\"codigoCnae\":\"6201-5/01\"}";
+                "{\"nomeFantasia\":\"Tech Porto\",\"documento\":\"98765432000198\",\"codigoCnae\":\"6201-5/01\"}";
 
         @Test
         @DisplayName("201 com o cadastro criado")
         void criado() throws Exception {
-            when(service.cadastrar(new CadastroSecundarioRequest("Tech Porto", "12345678000199", "6201-5/01")))
-                    .thenReturn(new CadastroSecundarioResponse(1L, "Tech Porto", "12345678000199", CNAE_6201));
+            when(service.cadastrar(new CadastroSecundarioRequest("Tech Porto", "98765432000198", "6201-5/01")))
+                    .thenReturn(new CadastroSecundarioResponse(1L, "Tech Porto", "98765432000198", CNAE_6201));
 
             mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(BODY_VALIDO))
                     .andExpect(status().isCreated())
@@ -140,11 +140,11 @@ class CadastroSecundarioControllerTest {
         @Test
         @DisplayName("400 CNAE-VAL-0004 quando codigoCnae nao vem no JSON")
         void codigoAusente() throws Exception {
-            when(service.cadastrar(new CadastroSecundarioRequest("Tech Porto", "12345678000199", null)))
+            when(service.cadastrar(new CadastroSecundarioRequest("Tech Porto", "98765432000198", null)))
                     .thenThrow(new ApplicationException(ErrorCode.CNAE_VAL_0004));
 
             mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"nomeFantasia\":\"Tech Porto\",\"documento\":\"12345678000199\"}"))
+                            .content("{\"nomeFantasia\":\"Tech Porto\",\"documento\":\"98765432000198\"}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("CNAE-VAL-0004"));
         }
@@ -189,7 +189,7 @@ class CadastroSecundarioControllerTest {
         @DisplayName("3 campos invalidos: code do primeiro e errors em ordem de declaracao")
         void tresCamposInvalidos() throws Exception {
             mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON)
-                            .content(body(" ", "12.345.678/0001-95", "6201501")))
+                            .content(body(" ", "abc", "6201501")))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("CADSEC-VAL-0001"))
                     .andExpect(jsonPath("$.detail").value("A requisicao possui 3 campos invalidos."))

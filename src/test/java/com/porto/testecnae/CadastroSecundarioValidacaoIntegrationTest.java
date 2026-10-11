@@ -62,9 +62,32 @@ class CadastroSecundarioValidacaoIntegrationTest {
         }
 
         @Test
-        @DisplayName("exemplo do README (DV incorreto) continua aceito: DV nao e validado")
+        @DisplayName("exemplo do README corrigido (DV valido): 201")
         void exemploDoReadme() throws Exception {
-            postar("Tech Porto", "12345678000199", "6201-5/01").andExpect(status().isCreated());
+            postar("Tech Porto", "12345678000195", "6201-5/01").andExpect(status().isCreated());
+        }
+
+        @ParameterizedTest(name = "documento [{0}]")
+        @CsvSource(delimiter = '|', textBlock = """
+                12.345.678/0001-95 | 12345678000195
+                12345678/0001-95   | 12345678000195
+                12.abc.345/01de-35 | 12ABC34501DE35
+                """)
+        @DisplayName("CNPJ com mascara: 201 e gravado sem mascara")
+        void comMascara(String documento, String gravado) throws Exception {
+            postar("Tech Porto", documento, "6201-5/01")
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.documento").value(gravado));
+
+            assertThat(repository.existsByDocumento(gravado)).isTrue();
+        }
+
+        @Test
+        @DisplayName("nome com espacos repetidos e NBSP: gravado normalizado")
+        void nomeNormalizado() throws Exception {
+            postar("\u00A0Tech   Porto\u00A0", "12345678000195", "6201-5/01")
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.nomeFantasia").value("Tech Porto"));
         }
 
         @Test
@@ -94,7 +117,11 @@ class CadastroSecundarioValidacaoIntegrationTest {
                 '   '          | 12345678000195     | 6201-5/01 | CADSEC-VAL-0001 (antes: 201 em branco)
                 Tech Porto     | NULL               | 6201-5/01 | CADSEC-VAL-0003 (antes: 500)
                 Tech Porto     | abc                | 6201-5/01 | CADSEC-VAL-0004 (antes: 201)
-                Tech Porto     | 12.345.678/0001-95 | 6201-5/01 | CADSEC-VAL-0004
+                Tech Porto     | 12.345.678/0001-9  | 6201-5/01 | CADSEC-VAL-0004 (mascara incompleta)
+                Tech Porto     | 12345678000199     | 6201-5/01 | CADSEC-VAL-0006 (antes: 201, DV invalido)
+                Tech Porto     | 12.345.678/0001-99 | 6201-5/01 | CADSEC-VAL-0006
+                Tech Porto     | 00000000000000     | 6201-5/01 | CADSEC-VAL-0007 (antes: 201)
+                Tech Porto     | 11.111.111/1111-11 | 6201-5/01 | CADSEC-VAL-0007
                 Tech Porto     | 123456780001951    | 6201-5/01 | CADSEC-VAL-0004 (antes: 500)
                 Tech Porto     | 12345678909        | 6201-5/01 | CADSEC-VAL-0005 (antes: 201)
                 Tech Porto     | 123.456.789-09     | 6201-5/01 | CADSEC-VAL-0005
@@ -108,6 +135,18 @@ class CadastroSecundarioValidacaoIntegrationTest {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value(esperado.split(" ")[0]))
                     .andExpect(jsonPath("$.errors.length()").value(1));
+
+            assertThat(repository.count()).isEqualTo(antes);
+        }
+
+        @Test
+        @DisplayName("nome so com NBSP: 400 CADSEC-VAL-0001 e nada e gravado (antes: 201 gravado em branco)")
+        void nomeSoComNbsp() throws Exception {
+            var antes = repository.count();
+
+            postar("\u00A0\u00A0", "12345678000195", "6201-5/01")
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("CADSEC-VAL-0001"));
 
             assertThat(repository.count()).isEqualTo(antes);
         }
@@ -184,6 +223,16 @@ class CadastroSecundarioValidacaoIntegrationTest {
             postar("Empresa B", "12345678000195", "9999-9/99")
                     .andExpect(status().isUnprocessableContent())
                     .andExpect(jsonPath("$.code").value("CADSEC-NEG-0001"));
+        }
+
+        @Test
+        @DisplayName("mesmo CNPJ com e sem mascara: 409 (comparado ja normalizado)")
+        void duplicidadeComMascara() throws Exception {
+            postar("Empresa A", "12345678000195", "6201-5/01").andExpect(status().isCreated());
+
+            postar("Empresa B", "12.345.678/0001-95", "6201-5/01")
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("CADSEC-NEG-0002"));
         }
 
         @Test

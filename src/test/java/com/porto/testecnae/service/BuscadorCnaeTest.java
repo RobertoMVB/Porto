@@ -67,7 +67,8 @@ class BuscadorCnaeTest {
         }
 
         @ParameterizedTest(name = "codigo [{0}]")
-        @ValueSource(strings = {" 6201-5/01", "6201-5/01 ", "  6201-5/01  ", "\t6201-5/01\n", " 6201-5/01 "})
+        @ValueSource(strings = {" 6201-5/01", "6201-5/01 ", "  6201-5/01  ", "\t6201-5/01\n", "\u20036201-5/01\u2003",
+                "\u00A06201-5/01\u00A0", "\u200B6201-5/01\uFEFF"})
         @DisplayName("espacos nas pontas sao removidos antes de consultar")
         void espacosNasPontasSaoRemovidos(String codigo) {
             when(repository.findByCodigo("6201-5/01")).thenReturn(Optional.of(CNAE_6201));
@@ -99,7 +100,7 @@ class BuscadorCnaeTest {
         }
 
         @ParameterizedTest(name = "codigo [{0}]")
-        @ValueSource(strings = {"", " ", "   ", "\t", "\n", " "})
+        @ValueSource(strings = {"", " ", "   ", "\t", "\n", "\u2003", "\u00A0", "\u200B"})
         @DisplayName("codigo vazio ou so espacos lanca CNAE-VAL-0005 e nao consulta o banco")
         void codigoVazio(String codigo) {
             assertErro(() -> buscador.buscarPorCodigoOuFalhar(codigo), ErrorCode.CNAE_VAL_0005);
@@ -121,6 +122,7 @@ class BuscadorCnaeTest {
                 "6201-5/01x",       // sufixo extra
                 "62O1-5/01",        // letra O no lugar de zero
                 "6201 5/01",        // espaco no lugar do hifen
+                "6201-5/\u00A001",  // NBSP interno (normalizado para espaco: continua invalido)
                 "6201-5\\01",       // barra invertida
                 "6201-5/0_",        // curinga do LIKE
                 "%",                // curinga do LIKE
