@@ -83,7 +83,9 @@ errorCode=CADSEC-VAL-0001 status=400 path=/api/cadastros-secundarios detail="O n
 | `GEN-VAL-0003` | 400 | Numero da pagina invalido | `page` negativo. | Cliente: usar `page >= 0`. |
 | `GEN-VAL-0004` | 400 | Tamanho da pagina invalido | `size` menor que 1 ou maior que 100. | Cliente: usar `size` entre 1 e 100. |
 | `GEN-VAL-0005` | 400 | Corpo da requisicao ausente ou malformado | POST sem corpo, JSON com erro de sintaxe, ou array no lugar de objeto. A mensagem tecnica do parser nao e devolvida nem logada (pode conter trechos do corpo). | Cliente: enviar um JSON de objeto valido. |
-| `GEN-INT-0001` | 500 | Erro interno inesperado | Excecao nao tratada (banco indisponivel, bug, etc.). O cliente recebe mensagem generica; o detalhe tecnico e o stack trace ficam apenas no log, em nivel `ERROR`. | Time: investigar o log pelo `path` e horario. Alta frequencia indica incidente. |
+| `GEN-INT-0001` | 500 | Erro interno inesperado | Excecao nao tratada (bug, falha de banco que nao seja indisponibilidade, etc.). O cliente recebe mensagem generica; o detalhe tecnico e o stack trace ficam apenas no log, em nivel `ERROR`. | Time: investigar o log pelo `path` e horario. Alta frequencia indica incidente. |
+| `GEN-INT-0002` | 500 | Erro ao carregar dados relacionados | `LazyInitializationException`: um relacionamento `LAZY` foi acessado fora de transacao. Com `spring.jpa.open-in-view=false`, e **sempre bug de codigo** (falta `join fetch` ou `@Transactional(readOnly = true)` no service). | Time: o stack trace no log aponta a entidade e o ponto do acesso. Qualquer ocorrencia merece correcao; nao e erro de cliente. |
+| `GEN-INT-0003` | 503 | Servico temporariamente indisponivel | Banco indisponivel: `CannotCreateTransactionException` (falha ao abrir transacao), `CannotGetJdbcConnectionException` ou outra `DataAccessResourceFailureException` (sem conexao, pool esgotado). | Cliente: tentar novamente mais tarde. Time: verificar saude do banco e do pool de conexoes. Pico de ocorrencias indica incidente de infraestrutura. |
 
 ### CNAE (`CNAE`)
 
