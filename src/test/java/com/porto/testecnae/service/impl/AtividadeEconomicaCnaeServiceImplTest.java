@@ -69,14 +69,26 @@ class AtividadeEconomicaCnaeServiceImplTest {
             assertThat(service.buscarPorDescricao("inexistente")).isEmpty();
         }
 
+        @ParameterizedTest(name = "termo [{0}]")
+        @ValueSource(strings = {" programas", "programas ", " programas ", "   programas   ",
+                "\tprogramas", "programas\n", "\r\n programas \t", " programas "})
+        @DisplayName("espacos nas pontas sao removidos antes de consultar o repositorio")
+        void espacosNasPontasSaoRemovidos(String termo) {
+            when(repository.buscarPorDescricaoContendo("programas")).thenReturn(List.of(CNAE_6201, CNAE_6202));
+
+            assertThat(service.buscarPorDescricao(termo)).hasSize(2);
+
+            verify(repository).buscarPorDescricaoContendo("programas");
+        }
+
         @Test
-        @DisplayName("termo e repassado ao repositorio exatamente como recebido (sem trim)")
-        void termoNaoSofreTrim() {
-            when(repository.buscarPorDescricaoContendo(" programas ")).thenReturn(List.of());
+        @DisplayName("espacos internos sao mantidos")
+        void espacosInternosSaoMantidos() {
+            when(repository.buscarPorDescricaoContendo("de  programas")).thenReturn(List.of());
 
-            service.buscarPorDescricao(" programas ");
+            service.buscarPorDescricao("  de  programas  ");
 
-            verify(repository).buscarPorDescricaoContendo(" programas ");
+            verify(repository).buscarPorDescricaoContendo("de  programas");
         }
 
         @Test
@@ -86,6 +98,37 @@ class AtividadeEconomicaCnaeServiceImplTest {
             when(repository.buscarPorDescricaoContendo(termo)).thenReturn(List.of());
 
             assertThat(service.buscarPorDescricao(termo)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("limite de 180 vale para o termo sem os espacos das pontas")
+        void limiteConsideraTermoSemEspacos() {
+            var termo = "a".repeat(AtividadeEconomicaCnaeServiceImpl.TAMANHO_MAXIMO_TERMO);
+            when(repository.buscarPorDescricaoContendo(termo)).thenReturn(List.of());
+
+            assertThat(service.buscarPorDescricao("   " + termo + "   ")).isEmpty();
+
+            verify(repository).buscarPorDescricaoContendo(termo);
+        }
+
+        @Test
+        @DisplayName("curinga cercado de espacos tambem e normalizado")
+        void curingaComEspacos() {
+            when(repository.buscarPorDescricaoContendo("%")).thenReturn(List.of());
+
+            assertThat(service.buscarPorDescricao(" % ")).isEmpty();
+
+            verify(repository).buscarPorDescricaoContendo("%");
+        }
+
+        @Test
+        @DisplayName("NBSP (U+00A0) nao e removido pelo strip: chega ao repositorio (limitacao conhecida)")
+        void nbspNaoEhRemovido() {
+            when(repository.buscarPorDescricaoContendo(" programas")).thenReturn(List.of());
+
+            assertThat(service.buscarPorDescricao(" programas")).isEmpty();
+
+            verify(repository).buscarPorDescricaoContendo(" programas");
         }
 
         @Test
@@ -112,7 +155,7 @@ class AtividadeEconomicaCnaeServiceImplTest {
         }
 
         @ParameterizedTest(name = "termo [{0}]")
-        @ValueSource(strings = {"", " ", "   ", "\t", "\n", " \t\n "})
+        @ValueSource(strings = {"", " ", "   ", "\t", "\n", " \t\n ", " "})
         @DisplayName("termo vazio ou so com espacos lanca CNAE-VAL-0002 e nao consulta o banco")
         void termoEmBrancoLancaErro(String termo) {
             assertThatThrownBy(() -> service.buscarPorDescricao(termo))
@@ -130,6 +173,18 @@ class AtividadeEconomicaCnaeServiceImplTest {
             assertThatThrownBy(() -> service.buscarPorDescricao(termo))
                     .isInstanceOf(ApplicationException.class)
                     .hasMessageContaining("180")
+                    .extracting("errorCode").isEqualTo(ErrorCode.CNAE_VAL_0003);
+
+            verify(repository, never()).buscarPorDescricaoContendo(anyString());
+        }
+
+        @Test
+        @DisplayName("termo com 181 caracteres uteis continua rejeitado mesmo com espacos nas pontas")
+        void termoAcimaDoLimiteComEspacosLancaErro() {
+            var termo = "  " + "a".repeat(AtividadeEconomicaCnaeServiceImpl.TAMANHO_MAXIMO_TERMO + 1) + "  ";
+
+            assertThatThrownBy(() -> service.buscarPorDescricao(termo))
+                    .isInstanceOf(ApplicationException.class)
                     .extracting("errorCode").isEqualTo(ErrorCode.CNAE_VAL_0003);
 
             verify(repository, never()).buscarPorDescricaoContendo(anyString());
