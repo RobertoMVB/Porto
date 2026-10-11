@@ -101,12 +101,12 @@ class CadastroSecundarioServiceImplTest {
                 return c;
             });
 
-            var resultado = service.cadastrar(new CadastroSecundarioRequest("Tech Porto", "12345678000199", "6201-5/01"));
+            var resultado = service.cadastrar(new CadastroSecundarioRequest("Tech Porto", "98765432000198", "6201-5/01"));
 
             var captor = ArgumentCaptor.forClass(CadastroSecundario.class);
             verify(repository).save(captor.capture());
             assertThat(captor.getValue().getNomeFantasia()).isEqualTo("Tech Porto");
-            assertThat(captor.getValue().getDocumento()).isEqualTo("12345678000199");
+            assertThat(captor.getValue().getDocumento()).isEqualTo("98765432000198");
             assertThat(captor.getValue().getCnae()).isSameAs(CNAE_6201);
 
             assertThat(resultado.id()).isEqualTo(1L);
@@ -120,7 +120,7 @@ class CadastroSecundarioServiceImplTest {
             when(buscadorCnae.buscarPorCodigo("6201-5/01")).thenReturn(Optional.of(CNAE_6201));
             when(repository.save(any(CadastroSecundario.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            service.cadastrar(new CadastroSecundarioRequest("Tech Porto", "12345678000199", "  6201-5/01 "));
+            service.cadastrar(new CadastroSecundarioRequest("Tech Porto", "98765432000198", "  6201-5/01 "));
 
             verify(buscadorCnae).buscarPorCodigo("6201-5/01");
         }
@@ -136,7 +136,7 @@ class CadastroSecundarioServiceImplTest {
             when(buscadorCnae.buscarPorCodigo("9999-9/99")).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.cadastrar(
-                    new CadastroSecundarioRequest("Fantasma", "00000000000000", "9999-9/99")))
+                    new CadastroSecundarioRequest("Fantasma", "55667788000186", "9999-9/99")))
                     .isInstanceOf(ApplicationException.class)
                     .hasMessage("Cadastro rejeitado: o CNAE '9999-9/99' nao existe.")
                     .extracting("errorCode").isEqualTo(ErrorCode.CADSEC_NEG_0001);
@@ -147,7 +147,7 @@ class CadastroSecundarioServiceImplTest {
         @Test
         @DisplayName("codigoCnae ausente no JSON (nulo): CNAE-VAL-0004, sem consultar nem gravar")
         void codigoNulo() {
-            assertErroSemGravar(new CadastroSecundarioRequest("Tech Porto", "12345678000199", null),
+            assertErroSemGravar(new CadastroSecundarioRequest("Tech Porto", "98765432000198", null),
                     ErrorCode.CNAE_VAL_0004);
         }
 
@@ -155,7 +155,7 @@ class CadastroSecundarioServiceImplTest {
         @ValueSource(strings = {"", "   ", "\t"})
         @DisplayName("codigoCnae vazio: CNAE-VAL-0005, sem consultar nem gravar")
         void codigoVazio(String codigo) {
-            assertErroSemGravar(new CadastroSecundarioRequest("Tech Porto", "12345678000199", codigo),
+            assertErroSemGravar(new CadastroSecundarioRequest("Tech Porto", "98765432000198", codigo),
                     ErrorCode.CNAE_VAL_0005);
         }
 
@@ -163,7 +163,7 @@ class CadastroSecundarioServiceImplTest {
         @ValueSource(strings = {"6201501", "6201-5/1", "abc", "%"})
         @DisplayName("codigoCnae malformado: CNAE-VAL-0006, sem consultar nem gravar")
         void codigoMalformado(String codigo) {
-            assertErroSemGravar(new CadastroSecundarioRequest("Tech Porto", "12345678000199", codigo),
+            assertErroSemGravar(new CadastroSecundarioRequest("Tech Porto", "98765432000198", codigo),
                     ErrorCode.CNAE_VAL_0006);
         }
 
@@ -173,7 +173,7 @@ class CadastroSecundarioServiceImplTest {
             when(buscadorCnae.buscarPorCodigo("6201-5/01")).thenReturn(Optional.of(CNAE_6201));
             when(repository.save(any(CadastroSecundario.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            service.cadastrar(new CadastroSecundarioRequest(null, "12345678000199", "6201-5/01"));
+            service.cadastrar(new CadastroSecundarioRequest(null, "98765432000198", "6201-5/01"));
 
             verify(repository).save(any(CadastroSecundario.class));
         }
@@ -275,7 +275,7 @@ class CadastroSecundarioServiceImplTest {
         @DisplayName("usa listarComCnae (join fetch) e converte em DTO")
         void usaJoinFetchEConverte() {
             var cadastro = CadastroSecundario.builder()
-                    .id(1L).nomeFantasia("Tech Porto").documento("12345678000199").cnae(CNAE_6201).build();
+                    .id(1L).nomeFantasia("Tech Porto").documento("98765432000198").cnae(CNAE_6201).build();
             when(repository.listarComCnae()).thenReturn(List.of(cadastro));
 
             assertThat(service.listarTodos())

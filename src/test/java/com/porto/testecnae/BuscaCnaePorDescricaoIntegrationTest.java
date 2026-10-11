@@ -62,12 +62,13 @@ class BuscaCnaePorDescricaoIntegrationTest {
                 .andExpect(jsonPath("$[*].codigo", contains("6201-5/01")));
     }
 
-    @Test
-    @DisplayName("espaco interno e mantido: termo com espaco duplo nao encontra nada")
-    void espacoInternoMantido() throws Exception {
-        mockMvc.perform(get(URL).param("termo", "de  programas"))
+    @ParameterizedTest(name = "termo [{0}]")
+    @ValueSource(strings = {"de  programas", "de\tprogramas", "de   programas", "de\u00A0programas"})
+    @DisplayName("espacos internos repetidos, tab e NBSP sao normalizados: encontra os 2 CNAEs (antes: vazio)")
+    void espacoInternoNormalizado(String termo) throws Exception {
+        mockMvc.perform(get(URL).param("termo", termo))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isEmpty());
+                .andExpect(jsonPath("$[*].codigo", contains("6201-5/01", "6202-3/00")));
     }
 
     @Test
@@ -88,10 +89,18 @@ class BuscaCnaePorDescricaoIntegrationTest {
     }
 
     @Test
-    @DisplayName("NBSP (U+00A0) nao e removido: retorna vazio (limitacao conhecida)")
-    void nbspNaoEhRemovido() throws Exception {
-        mockMvc.perform(get(URL).param("termo", " programas"))
+    @DisplayName("NBSP (U+00A0) nas pontas e removido: encontra os 2 CNAEs (antes: vazio)")
+    void nbspRemovido() throws Exception {
+        mockMvc.perform(get(URL).param("termo", "\u00A0programas\u00A0"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isEmpty());
+                .andExpect(jsonPath("$[*].codigo", contains("6201-5/01", "6202-3/00")));
+    }
+
+    @Test
+    @DisplayName("termo so com NBSP: 400 CNAE-VAL-0002 (antes: 200 vazio)")
+    void termoSoComNbsp() throws Exception {
+        mockMvc.perform(get(URL).param("termo", "\u00A0\u00A0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CNAE-VAL-0002"));
     }
 }

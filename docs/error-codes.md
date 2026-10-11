@@ -98,7 +98,7 @@ errorCode=CADSEC-VAL-0001 status=400 path=/api/cadastros-secundarios detail="O n
 | Codigo | HTTP | Significado | Causa provavel | Acao |
 |---|---|---|---|---|
 | `CNAE-VAL-0001` | 400 | Termo de busca nao informado | O servico de busca recebeu `termo` nulo. Pela API, a ausencia do parametro gera `GEN-VAL-0001`; este codigo protege chamadas internas ao servico. | Time: verificar quem chama o servico sem termo. |
-| `CNAE-VAL-0002` | 400 | Termo de busca vazio | `termo` vazio ou so com espacos (ex.: `?termo=`, `?termo=%20`). Para listar todos os CNAEs, use `GET /api/cnaes/paginado`. | Cliente: informar um termo ou usar a listagem paginada. |
+| `CNAE-VAL-0002` | 400 | Termo de busca vazio | `termo` vazio ou so com espacos, inclusive NBSP e caracteres invisiveis (ex.: `?termo=`, `?termo=%20`, `?termo=%C2%A0`). Para listar todos os CNAEs, use `GET /api/cnaes/paginado`. | Cliente: informar um termo ou usar a listagem paginada. |
 | `CNAE-VAL-0003` | 400 | Termo de busca acima do tamanho maximo | `termo` com mais de 180 caracteres (contados apos remover os espacos das pontas), o tamanho da coluna `descricao`. Um termo maior nunca encontraria resultado. | Cliente: reduzir o termo. |
 | `CNAE-VAL-0004` | 400 | Codigo CNAE nao informado | `codigoCnae` ausente no JSON do `POST /api/cadastros-secundarios`, ou chamada interna sem codigo. Nos endpoints GET, a ausencia do parametro gera `GEN-VAL-0001`. | Cliente: enviar `codigoCnae`. |
 | `CNAE-VAL-0005` | 400 | Codigo CNAE vazio | Codigo vazio ou so com espacos (`?codigo=`, `"codigoCnae": ""`). | Cliente: informar o codigo. Se for frequente, verificar campo vazio no front-end. |
@@ -107,14 +107,16 @@ errorCode=CADSEC-VAL-0001 status=400 path=/api/cadastros-secundarios detail="O n
 
 ### Cadastro secundario (`CADSEC`)
 
-Campos do `POST /api/cadastros-secundarios`. Os valores passam por normalizacao antes da validacao: espacos das pontas sao removidos (`strip()`) e o documento vai para maiusculas.
+Campos do `POST /api/cadastros-secundarios`. Os valores passam por normalizacao antes da validacao (e sao gravados normalizados): qualquer espaco, inclusive NBSP, tab e caracteres invisiveis, vira um espaco comum, sequencias viram um e as pontas sao removidas (`TextoNormalizador`). O documento vai para maiusculas e perde a mascara (`.`, `/`, `-` e espacos em qualquer posicao).
 
 | Codigo | HTTP | Significado | Causa provavel | Acao |
 |---|---|---|---|---|
-| `CADSEC-VAL-0001` | 400 | Nome fantasia nao informado | `nomeFantasia` ausente, nulo, vazio ou so com espacos. | Cliente: informar o nome. |
+| `CADSEC-VAL-0001` | 400 | Nome fantasia nao informado | `nomeFantasia` ausente, nulo, vazio ou so com espacos, **inclusive so NBSP ou caracteres invisiveis** (comum em texto copiado da web/Excel). | Cliente: informar o nome. |
 | `CADSEC-VAL-0002` | 400 | Nome fantasia acima de 120 caracteres | Mais de 120 caracteres (contados apos remover os espacos das pontas), o tamanho da coluna. | Cliente: reduzir o nome. |
 | `CADSEC-VAL-0003` | 400 | Documento nao informado | `documento` ausente, nulo, vazio ou so com espacos. | Cliente: informar o CNPJ. |
-| `CADSEC-VAL-0004` | 400 | Documento com formato invalido | Nao segue `[A-Z0-9]{12}[0-9]{2}`: tamanho diferente de 14, caractere especial, **mascara** (`12.345.678/0001-95`) ou letra nos 2 ultimos digitos. Aceita CNPJ numerico e **alfanumerico** (vigente desde jul/2026). O digito verificador **nao** e validado. | Cliente: enviar o CNPJ so com letras e numeros, sem pontuacao. |
+| `CADSEC-VAL-0004` | 400 | Documento com formato invalido | Depois de remover a mascara, nao segue `[A-Z0-9]{12}[0-9]{2}`: tamanho diferente de 14 (ex.: mascara incompleta `12.345.678/0001-9`), caractere que nao e de mascara (`,`, `_`, `|`...) ou letra nos 2 ultimos digitos. Aceita CNPJ numerico e **alfanumerico** (vigente desde jul/2026), **com ou sem mascara**. | Cliente: enviar os 14 caracteres do CNPJ (a pontuacao e opcional). |
 | `CADSEC-VAL-0005` | 400 | Documento e um CPF | 11 digitos, com ou sem a mascara `000.000.000-00`. O cadastro secundario aceita apenas CNPJ. | Cliente: informar o CNPJ da empresa. Alta frequencia pode indicar formulario aceitando pessoa fisica. |
+| `CADSEC-VAL-0006` | 400 | CNPJ com digito verificador invalido | Os 2 ultimos digitos nao conferem com a regra oficial (modulo 11; cada caractere vale seu codigo ASCII menos 48, o que vale para CNPJ numerico e alfanumerico). Geralmente e erro de digitacao. Validado com ou sem mascara. | Cliente: conferir o CNPJ digitado. |
+| `CADSEC-VAL-0007` | 400 | CNPJ com sequencia repetida | Todos os caracteres iguais (`00000000000000`, `11.111.111/1111-11`...). Essas sequencias passam no calculo do digito verificador, mas nao sao CNPJs reais. | Cliente: informar o CNPJ real. Time: alta frequencia indica dados de teste ou preenchimento falso em algum cliente. |
 | `CADSEC-NEG-0001` | 422 | Cadastro rejeitado: CNAE inexistente | `POST /api/cadastros-secundarios` com `codigoCnae` em formato valido, mas nao cadastrado. **Nada e gravado.** E 422, e nao 404, porque o endpoint existe e o JSON e valido; o que falha e a referencia ao CNAE. | Cliente: validar o CNAE antes (`GET /api/cadastros-secundarios/validar-cnae`). Time: alta frequencia indica problema de integracao no cliente (tabela de CNAE desatualizada). |
 | `CADSEC-NEG-0002` | 409 | CNPJ ja cadastrado | Ja existe cadastro secundario com o mesmo `documento` (comparado apos normalizacao: espacos e maiusculas). **Nada e gravado.** Garantido tambem por constraint `unique` no banco, para requisicoes simultaneas. O CNPJ nao aparece na resposta nem no log. | Cliente: consultar o cadastro existente em vez de criar outro. |

@@ -7,6 +7,7 @@ import com.porto.testecnae.error.ErrorCode;
 import com.porto.testecnae.repository.AtividadeEconomicaCnaeRepository;
 import com.porto.testecnae.service.AtividadeEconomicaCnaeService;
 import com.porto.testecnae.service.BuscadorCnae;
+import com.porto.testecnae.util.TextoNormalizador;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -66,17 +67,15 @@ public class AtividadeEconomicaCnaeServiceImpl implements AtividadeEconomicaCnae
     }
 
     /**
-     * Remove espacos das pontas e valida o termo. Sem isso, " Cultivo" ou "encomenda " deixariam de
-     * encontrar CNAEs cuja descricao comeca ou termina com a palavra.
-     * <p>
-     * Usa {@link String#strip()} (espacos Unicode, mesmo criterio de {@link String#isBlank()}).
-     * Espacos internos sao mantidos.
+     * Normaliza os espacos ({@link TextoNormalizador}: NBSP e tabs viram espaco, sequencias viram um, pontas
+     * removidas) e valida o termo. Sem isso, " Cultivo", "de  programas" ou um NBSP copiado da web deixariam
+     * de encontrar CNAEs. O limite de tamanho vale para o termo ja normalizado.
      */
     private static String normalizarTermo(String termo) {
         if (termo == null) {
             throw new ApplicationException(ErrorCode.CNAE_VAL_0001);
         }
-        var termoNormalizado = termo.strip();
+        var termoNormalizado = TextoNormalizador.normalizarEspacos(termo);
         if (termoNormalizado.isEmpty()) {
             throw new ApplicationException(ErrorCode.CNAE_VAL_0002);
         }

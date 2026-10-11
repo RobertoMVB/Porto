@@ -4,6 +4,7 @@ import com.porto.testecnae.domain.AtividadeEconomicaCnae;
 import com.porto.testecnae.error.ApplicationException;
 import com.porto.testecnae.error.ErrorCode;
 import com.porto.testecnae.repository.AtividadeEconomicaCnaeRepository;
+import com.porto.testecnae.util.TextoNormalizador;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -43,14 +44,14 @@ public class BuscadorCnae {
     }
 
     /**
-     * Remove espacos das pontas ({@link String#strip()}, mesmo criterio da busca por descricao) e valida o formato.
+     * Normaliza os espacos ({@link TextoNormalizador}, mesmo criterio da busca por descricao) e valida o formato.
      * Codigo sem pontuacao (ex.: {@code 6201501}) nao e completado: cai em formato invalido.
      */
     public static String normalizarCodigo(String codigo) {
         if (codigo == null) {
             throw new ApplicationException(ErrorCode.CNAE_VAL_0004);
         }
-        var codigoNormalizado = codigo.strip();
+        var codigoNormalizado = TextoNormalizador.normalizarEspacos(codigo);
         if (codigoNormalizado.isEmpty()) {
             throw new ApplicationException(ErrorCode.CNAE_VAL_0005);
         }
