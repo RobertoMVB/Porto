@@ -1,11 +1,11 @@
 package com.porto.testecnae.dto;
 
+import com.porto.testecnae.util.TextoNormalizador;
 import com.porto.testecnae.validation.Cnpj;
+import com.porto.testecnae.validation.CnpjValidator;
 import com.porto.testecnae.validation.CodigoCnae;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-
-import java.util.Locale;
 
 /**
  * Corpo do {@code POST /api/cadastros-secundarios}.
@@ -26,16 +26,13 @@ public record CadastroSecundarioRequest(
 ) {
 
     /**
-     * Normaliza antes da validacao: remove espacos das pontas ({@link String#strip()}) e
-     * coloca o documento em maiusculas (o CNPJ alfanumerico oficial usa apenas maiusculas).
+     * Normaliza antes da validacao: espacos ({@link TextoNormalizador}: NBSP, tabs e sequencias viram um espaco,
+     * pontas removidas) e documento via {@link CnpjValidator#normalizar(String)} (sem mascara, em maiusculas).
+     * O valor validado e o mesmo comparado na duplicidade e gravado.
      */
     public CadastroSecundarioRequest {
-        nomeFantasia = strip(nomeFantasia);
-        documento = documento == null ? null : documento.strip().toUpperCase(Locale.ROOT);
-        codigoCnae = strip(codigoCnae);
-    }
-
-    private static String strip(String valor) {
-        return valor == null ? null : valor.strip();
+        nomeFantasia = TextoNormalizador.normalizarEspacos(nomeFantasia);
+        documento = CnpjValidator.normalizar(documento);
+        codigoCnae = TextoNormalizador.normalizarEspacos(codigoCnae);
     }
 }
