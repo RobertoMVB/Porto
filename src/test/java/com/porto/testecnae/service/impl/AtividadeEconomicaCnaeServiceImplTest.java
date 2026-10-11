@@ -4,6 +4,7 @@ import com.porto.testecnae.domain.AtividadeEconomicaCnae;
 import com.porto.testecnae.error.ApplicationException;
 import com.porto.testecnae.error.ErrorCode;
 import com.porto.testecnae.repository.AtividadeEconomicaCnaeRepository;
+import com.porto.testecnae.service.BuscadorCnae;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,9 @@ class AtividadeEconomicaCnaeServiceImplTest {
 
     @Mock
     private AtividadeEconomicaCnaeRepository repository;
+
+    @Mock
+    private BuscadorCnae buscadorCnae;
 
     @InjectMocks
     private AtividadeEconomicaCnaeServiceImpl service;
@@ -248,6 +252,58 @@ class AtividadeEconomicaCnaeServiceImplTest {
                     .extracting("errorCode").isEqualTo(ErrorCode.GEN_VAL_0004);
 
             verify(repository, never()).findAll(any(Pageable.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("buscarPorCodigo")
+    class BuscarPorCodigo {
+
+        @Test
+        @DisplayName("CNAE encontrado e convertido em DTO")
+        void encontradoConvertidoEmDto() {
+            when(buscadorCnae.buscarPorCodigoOuFalhar("6201-5/01")).thenReturn(CNAE_6201);
+
+            var resultado = service.buscarPorCodigo("6201-5/01");
+
+            assertThat(resultado.id()).isEqualTo(5L);
+            assertThat(resultado.codigo()).isEqualTo("6201-5/01");
+            assertThat(resultado.descricao()).isEqualTo(CNAE_6201.getDescricao());
+            assertThat(resultado.secao()).isEqualTo("Tecnologia");
+        }
+
+        @Test
+        @DisplayName("codigo e repassado ao buscador sem tratamento (normalizacao e do buscador)")
+        void codigoRepassadoAoBuscador() {
+            when(buscadorCnae.buscarPorCodigoOuFalhar(" 6201-5/01 ")).thenReturn(CNAE_6201);
+
+            service.buscarPorCodigo(" 6201-5/01 ");
+
+            verify(buscadorCnae).buscarPorCodigoOuFalhar(" 6201-5/01 ");
+        }
+
+        @Test
+        @DisplayName("CNAE-NEG-0001 do buscador e propagado, sem fallback para outro CNAE")
+        void naoEncontradoPropagado() {
+            when(buscadorCnae.buscarPorCodigoOuFalhar("9999-9/99"))
+                    .thenThrow(new ApplicationException(ErrorCode.CNAE_NEG_0001));
+
+            assertThatThrownBy(() -> service.buscarPorCodigo("9999-9/99"))
+                    .isInstanceOf(ApplicationException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.CNAE_NEG_0001);
+
+            verify(repository, never()).findAll();
+        }
+
+        @Test
+        @DisplayName("erro de validacao do buscador e propagado")
+        void validacaoPropagada() {
+            when(buscadorCnae.buscarPorCodigoOuFalhar("abc"))
+                    .thenThrow(new ApplicationException(ErrorCode.CNAE_VAL_0006));
+
+            assertThatThrownBy(() -> service.buscarPorCodigo("abc"))
+                    .isInstanceOf(ApplicationException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.CNAE_VAL_0006);
         }
     }
 
