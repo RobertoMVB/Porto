@@ -1,8 +1,10 @@
 package com.porto.testecnae.controller;
 
 import com.porto.testecnae.dto.AtividadeEconomicaCnaeResponse;
+import com.porto.testecnae.dto.PaginaResponse;
 import com.porto.testecnae.service.AtividadeEconomicaCnaeService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -12,7 +14,8 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/cnaes")
+// produces: Accept incompativel e recusado (406) antes de executar o metodo, sem efeitos colaterais
+@RequestMapping(value = "/api/cnaes", produces = MediaType.APPLICATION_JSON_VALUE)
 public class AtividadeEconomicaCnaeController {
 
     private final AtividadeEconomicaCnaeService service;
@@ -20,6 +23,13 @@ public class AtividadeEconomicaCnaeController {
     @GetMapping
     public List<AtividadeEconomicaCnaeResponse> listarTodas() {
         return service.listarTodas();
+    }
+
+    @GetMapping("/paginado")
+    public PaginaResponse<AtividadeEconomicaCnaeResponse> listarPaginado(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return service.listarPaginado(page, size);
     }
 
     @GetMapping("/buscar")
