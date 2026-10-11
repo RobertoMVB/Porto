@@ -28,7 +28,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ApplicationException.class)
     public ResponseEntity<Object> handleApplicationException(ApplicationException ex, HttpServletRequest request) {
-        return responder(ex.getErrorCode(), ex.getMessage(), ex.getMessage(), request.getRequestURI(), ex);
+        // O detalhe pode conter valores enviados pelo cliente; no log vai so a mensagem fixa do catalogo
+        var errorCode = ex.getErrorCode();
+        return responder(errorCode, ex.getMessage(), errorCode.getMensagem(), request.getRequestURI(), ex);
     }
 
     @ExceptionHandler(Exception.class)

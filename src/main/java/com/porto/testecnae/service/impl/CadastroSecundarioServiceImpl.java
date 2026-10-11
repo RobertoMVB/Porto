@@ -5,8 +5,10 @@ import com.porto.testecnae.domain.AtividadeEconomicaCnae;
 import com.porto.testecnae.dto.AtividadeEconomicaCnaeResponse;
 import com.porto.testecnae.dto.CadastroSecundarioRequest;
 import com.porto.testecnae.dto.CadastroSecundarioResponse;
-import com.porto.testecnae.repository.AtividadeEconomicaCnaeRepository;
+import com.porto.testecnae.error.ApplicationException;
+import com.porto.testecnae.error.ErrorCode;
 import com.porto.testecnae.repository.CadastroSecundarioRepository;
+import com.porto.testecnae.service.BuscadorCnae;
 import com.porto.testecnae.service.CadastroSecundarioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,7 +20,7 @@ import java.util.List;
 public class CadastroSecundarioServiceImpl implements CadastroSecundarioService {
 
     private final CadastroSecundarioRepository repository;
-    private final AtividadeEconomicaCnaeRepository cnaeRepository;
+    private final BuscadorCnae buscadorCnae;
 
     @Override
     public CadastroSecundarioResponse cadastrar(CadastroSecundarioRequest request) {
@@ -35,7 +37,7 @@ public class CadastroSecundarioServiceImpl implements CadastroSecundarioService 
 
     @Override
     public AtividadeEconomicaCnaeResponse validarCnae(String codigoCnae) {
-        return AtividadeEconomicaCnaeResponse.fromEntity(buscarCnaeParaValidacao(codigoCnae));
+        return AtividadeEconomicaCnaeResponse.fromEntity(buscadorCnae.buscarPorCodigoOuFalhar(codigoCnae));
     }
 
     @Override
@@ -46,13 +48,11 @@ public class CadastroSecundarioServiceImpl implements CadastroSecundarioService 
                 .toList();
     }
 
+    // 422 e nao 404: o recurso /cadastros-secundarios existe; o que falha e a referencia no corpo da requisicao
     private AtividadeEconomicaCnae buscarCnaeParaCadastro(String codigoCnae) {
-        return cnaeRepository.findByCodigo(codigoCnae)
-                .orElseGet(() -> cnaeRepository.findAll().getFirst());
-    }
-
-    private AtividadeEconomicaCnae buscarCnaeParaValidacao(String codigoCnae) {
-        return cnaeRepository.findByCodigo(codigoCnae)
-                .orElseGet(() -> cnaeRepository.findAll().getFirst());
+        var codigo = BuscadorCnae.normalizarCodigo(codigoCnae);
+        return buscadorCnae.buscarPorCodigo(codigo)
+                .orElseThrow(() -> new ApplicationException(ErrorCode.CADSEC_NEG_0001,
+                        "Cadastro rejeitado: o CNAE '%s' nao existe.".formatted(codigo)));
     }
 }

@@ -133,6 +133,70 @@ class AtividadeEconomicaCnaeControllerTest {
     }
 
     @Nested
+    @DisplayName("GET /api/cnaes/codigo (item 3)")
+    class Codigo {
+
+        @Test
+        @DisplayName("200 com o CNAE quando o codigo existe")
+        void encontrado() throws Exception {
+            when(service.buscarPorCodigo("6201-5/01")).thenReturn(CNAE_6201);
+
+            mockMvc.perform(get("/api/cnaes/codigo").param("codigo", "6201-5/01"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(5))
+                    .andExpect(jsonPath("$.codigo").value("6201-5/01"))
+                    .andExpect(jsonPath("$.descricao").value(CNAE_6201.descricao()));
+        }
+
+        @Test
+        @DisplayName("404 CNAE-NEG-0001 quando o codigo nao existe")
+        void naoEncontrado() throws Exception {
+            when(service.buscarPorCodigo("9999-9/99")).thenThrow(
+                    new ApplicationException(ErrorCode.CNAE_NEG_0001, "CNAE '9999-9/99' nao encontrado."));
+
+            mockMvc.perform(get("/api/cnaes/codigo").param("codigo", "9999-9/99"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.code").value("CNAE-NEG-0001"))
+                    .andExpect(jsonPath("$.title").value("Not Found"))
+                    .andExpect(jsonPath("$.detail").value("CNAE '9999-9/99' nao encontrado."))
+                    .andExpect(jsonPath("$.instance").value("/api/cnaes/codigo"));
+        }
+
+        @Test
+        @DisplayName("400 CNAE-VAL-0005 quando o codigo e vazio")
+        void codigoVazio() throws Exception {
+            when(service.buscarPorCodigo("")).thenThrow(new ApplicationException(ErrorCode.CNAE_VAL_0005));
+
+            mockMvc.perform(get("/api/cnaes/codigo").param("codigo", ""))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("CNAE-VAL-0005"));
+        }
+
+        @Test
+        @DisplayName("400 CNAE-VAL-0006 quando o formato e invalido")
+        void formatoInvalido() throws Exception {
+            when(service.buscarPorCodigo("6201501")).thenThrow(new ApplicationException(ErrorCode.CNAE_VAL_0006));
+
+            mockMvc.perform(get("/api/cnaes/codigo").param("codigo", "6201501"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("CNAE-VAL-0006"))
+                    .andExpect(jsonPath("$.detail").value(ErrorCode.CNAE_VAL_0006.getMensagem()));
+        }
+
+        @Test
+        @DisplayName("400 GEN-VAL-0001 quando o parametro 'codigo' nao e enviado")
+        void parametroAusente() throws Exception {
+            mockMvc.perform(get("/api/cnaes/codigo"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("GEN-VAL-0001"))
+                    .andExpect(jsonPath("$.detail").value("Parametro obrigatorio 'codigo' nao informado."));
+
+            verify(service, never()).buscarPorCodigo(anyString());
+        }
+    }
+
+    @Nested
     @DisplayName("GET /api/cnaes/paginado")
     class Paginado {
 
