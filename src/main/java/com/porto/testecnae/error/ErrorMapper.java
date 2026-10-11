@@ -66,12 +66,17 @@ public class ErrorMapper {
     }
 
     public void log(ErrorCode errorCode, String detalhe, String path, Throwable causa) {
-        if (errorCode.getStatus().is5xxServerError()) {
-            log.error("errorCode={} status={} path={} detail=\"{}\"",
-                    errorCode.getCodigo(), errorCode.getStatus().value(), path, detalhe, causa);
+        log(errorCode, errorCode.getStatus().value(), detalhe, path, causa);
+    }
+
+    /**
+     * @param status status HTTP efetivamente devolvido (pode diferir do nominal do codigo na rede de seguranca)
+     */
+    public void log(ErrorCode errorCode, int status, String detalhe, String path, Throwable causa) {
+        if (status >= 500) {
+            log.error("errorCode={} status={} path={} detail=\"{}\"", errorCode.getCodigo(), status, path, detalhe, causa);
         } else {
-            log.warn("errorCode={} status={} path={} detail=\"{}\"",
-                    errorCode.getCodigo(), errorCode.getStatus().value(), path, detalhe);
+            log.warn("errorCode={} status={} path={} detail=\"{}\"", errorCode.getCodigo(), status, path, detalhe);
         }
     }
 

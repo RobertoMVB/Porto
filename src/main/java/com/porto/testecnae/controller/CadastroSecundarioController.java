@@ -7,6 +7,7 @@ import com.porto.testecnae.service.CadastroSecundarioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,7 +20,8 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/cadastros-secundarios")
+// produces: Accept incompativel e recusado (406) antes de executar o metodo, sem efeitos colaterais
+@RequestMapping(value = "/api/cadastros-secundarios", produces = MediaType.APPLICATION_JSON_VALUE)
 public class CadastroSecundarioController {
 
     private final CadastroSecundarioService service;
