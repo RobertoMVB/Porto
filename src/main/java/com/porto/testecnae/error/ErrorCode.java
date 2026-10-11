@@ -9,7 +9,7 @@ import org.springframework.http.HttpStatus;
  * <p>
  * Formato: {@code <DOMINIO>-<CATEGORIA>-<NNNN>}
  * <ul>
- *     <li>DOMINIO: {@code GEN} (generico), {@code CNAE}, ...</li>
+ *     <li>DOMINIO: {@code GEN} (generico), {@code CNAE}, {@code CADSEC} (cadastro secundario), ...</li>
  *     <li>CATEGORIA: {@code VAL} (validacao de entrada), {@code NEG} (regra de negocio), {@code INT} (falha interna/integracao)</li>
  * </ul>
  * Documentacao de cada codigo em {@code docs/error-codes.md}. Codigos publicados nao devem ser reaproveitados.
@@ -26,7 +26,14 @@ public enum ErrorCode {
 
     CNAE_VAL_0001("CNAE-VAL-0001", HttpStatus.BAD_REQUEST, "O termo de busca deve ser informado."),
     CNAE_VAL_0002("CNAE-VAL-0002", HttpStatus.BAD_REQUEST, "O termo de busca nao pode ser vazio."),
-    CNAE_VAL_0003("CNAE-VAL-0003", HttpStatus.BAD_REQUEST, "O termo de busca excede o tamanho maximo permitido.");
+    CNAE_VAL_0003("CNAE-VAL-0003", HttpStatus.BAD_REQUEST, "O termo de busca excede o tamanho maximo permitido."),
+    CNAE_VAL_0004("CNAE-VAL-0004", HttpStatus.BAD_REQUEST, "O codigo CNAE deve ser informado."),
+    CNAE_VAL_0005("CNAE-VAL-0005", HttpStatus.BAD_REQUEST, "O codigo CNAE nao pode ser vazio."),
+    CNAE_VAL_0006("CNAE-VAL-0006", HttpStatus.BAD_REQUEST, "O codigo CNAE deve seguir o formato NNNN-N/NN."),
+    CNAE_NEG_0001("CNAE-NEG-0001", HttpStatus.NOT_FOUND, "CNAE nao encontrado."),
+
+    CADSEC_NEG_0001("CADSEC-NEG-0001", HttpStatus.UNPROCESSABLE_CONTENT,
+            "Cadastro secundario rejeitado: o CNAE informado nao existe.");
 
     private final String codigo;
     private final HttpStatus status;

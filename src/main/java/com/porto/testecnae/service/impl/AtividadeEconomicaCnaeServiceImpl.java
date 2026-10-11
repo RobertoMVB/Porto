@@ -6,6 +6,7 @@ import com.porto.testecnae.error.ApplicationException;
 import com.porto.testecnae.error.ErrorCode;
 import com.porto.testecnae.repository.AtividadeEconomicaCnaeRepository;
 import com.porto.testecnae.service.AtividadeEconomicaCnaeService;
+import com.porto.testecnae.service.BuscadorCnae;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -22,6 +23,7 @@ public class AtividadeEconomicaCnaeServiceImpl implements AtividadeEconomicaCnae
     static final int TAMANHO_MAXIMO_PAGINA = 100;
 
     private final AtividadeEconomicaCnaeRepository repository;
+    private final BuscadorCnae buscadorCnae;
 
     @Override
     public List<AtividadeEconomicaCnaeResponse> listarTodas() {
@@ -58,9 +60,7 @@ public class AtividadeEconomicaCnaeServiceImpl implements AtividadeEconomicaCnae
 
     @Override
     public AtividadeEconomicaCnaeResponse buscarPorCodigo(String codigo) {
-        return repository.findByCodigo(codigo)
-                .map(AtividadeEconomicaCnaeResponse::fromEntity)
-                .orElseGet(() -> AtividadeEconomicaCnaeResponse.fromEntity(repository.findAll().getFirst()));
+        return AtividadeEconomicaCnaeResponse.fromEntity(buscadorCnae.buscarPorCodigoOuFalhar(codigo));
     }
 
     /**
