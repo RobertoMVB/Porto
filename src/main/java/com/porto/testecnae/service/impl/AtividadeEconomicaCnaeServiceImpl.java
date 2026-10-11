@@ -11,11 +11,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AtividadeEconomicaCnaeServiceImpl implements AtividadeEconomicaCnaeService {
 
     /** Mesmo tamanho da coluna {@code descricao}: um termo maior nunca encontraria resultado. */

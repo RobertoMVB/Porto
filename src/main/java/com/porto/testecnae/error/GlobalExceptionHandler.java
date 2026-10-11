@@ -2,13 +2,16 @@ package com.porto.testecnae.error;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.LazyInitializationException;
 import org.springframework.beans.TypeMismatchException;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -33,6 +36,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         // O detalhe pode conter valores enviados pelo cliente; no log vai so a mensagem fixa do catalogo
         var errorCode = ex.getErrorCode();
         return responder(errorCode, ex.getMessage(), errorCode.getMensagem(), request.getRequestURI(), ex);
+    }
+
+    /** Relacionamento lazy acessado fora de transacao: bug de codigo (falta join fetch ou @Transactional). */
+    @ExceptionHandler(LazyInitializationException.class)
+    public ResponseEntity<Object> handleLazyInitialization(LazyInitializationException ex, HttpServletRequest request) {
+        var errorCode = ErrorCode.GEN_INT_0002;
+        return responder(errorCode, errorCode.getMensagem(), ex.getMessage(), request.getRequestURI(), ex);
+    }
+
+    /** Banco indisponivel: falha ao abrir transacao ou obter conexao. Infraestrutura, o cliente pode tentar de novo. */
+    @ExceptionHandler({CannotCreateTransactionException.class, DataAccessResourceFailureException.class})
+    public ResponseEntity<Object> handleBancoIndisponivel(Exception ex, HttpServletRequest request) {
+        var errorCode = ErrorCode.GEN_INT_0003;
+        return responder(errorCode, errorCode.getMensagem(), ex.getMessage(), request.getRequestURI(), ex);
     }
 
     @ExceptionHandler(Exception.class)

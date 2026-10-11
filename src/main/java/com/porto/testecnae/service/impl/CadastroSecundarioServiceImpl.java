@@ -13,6 +13,7 @@ import com.porto.testecnae.service.CadastroSecundarioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -23,6 +24,8 @@ public class CadastroSecundarioServiceImpl implements CadastroSecundarioService 
     private final CadastroSecundarioRepository repository;
     private final BuscadorCnae buscadorCnae;
 
+    // Sem @Transactional de proposito: apos a violacao da constraint unique, a sessao do Hibernate fica
+    // inutilizavel e a confirmacao de duplicidade em salvar() falharia na mesma transacao
     @Override
     public CadastroSecundarioResponse cadastrar(CadastroSecundarioRequest request) {
         var cnae = buscarCnaeParaCadastro(request.codigoCnae());
@@ -40,13 +43,16 @@ public class CadastroSecundarioServiceImpl implements CadastroSecundarioService 
     }
 
     @Override
+    @Transactional(readOnly = true)
     public AtividadeEconomicaCnaeResponse validarCnae(String codigoCnae) {
         return AtividadeEconomicaCnaeResponse.fromEntity(buscadorCnae.buscarPorCodigoOuFalhar(codigoCnae));
     }
 
+    // DTO montado dentro da transacao: nao depende do open-in-view (desligado)
     @Override
+    @Transactional(readOnly = true)
     public List<CadastroSecundarioResponse> listarTodos() {
-        return repository.findAll()
+        return repository.listarComCnae()
                 .stream()
                 .map(CadastroSecundarioResponse::fromEntity)
                 .toList();

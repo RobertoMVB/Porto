@@ -29,6 +29,9 @@ public enum ErrorCode {
     GEN_VAL_0004("GEN-VAL-0004", HttpStatus.BAD_REQUEST, "Tamanho da pagina invalido."),
     GEN_VAL_0005("GEN-VAL-0005", HttpStatus.BAD_REQUEST, "Corpo da requisicao ausente ou malformado."),
     GEN_INT_0001("GEN-INT-0001", HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno inesperado."),
+    GEN_INT_0002("GEN-INT-0002", HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno ao carregar dados relacionados."),
+    GEN_INT_0003("GEN-INT-0003", HttpStatus.SERVICE_UNAVAILABLE,
+            "Servico temporariamente indisponivel. Tente novamente em instantes."),
 
     CNAE_VAL_0001("CNAE-VAL-0001", HttpStatus.BAD_REQUEST, "O termo de busca deve ser informado."),
     CNAE_VAL_0002("CNAE-VAL-0002", HttpStatus.BAD_REQUEST, "O termo de busca nao pode ser vazio."),
