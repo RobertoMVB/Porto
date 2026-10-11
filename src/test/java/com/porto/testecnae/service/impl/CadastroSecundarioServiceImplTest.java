@@ -17,6 +17,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.List;
 import java.util.Optional;
@@ -164,8 +165,8 @@ class CadastroSecundarioServiceImplTest {
         }
 
         @Test
-        @DisplayName("FORA DO ESCOPO (item 6): nomeFantasia nulo com CNAE valido ainda chega ao save")
-        void item6NomeFantasiaNuloAindaNaoValidado() {
+        @DisplayName("campos sao validados na borda (@Valid no controller): o service nao revalida nomeFantasia")
+        void serviceNaoRevalidaCampos() {
             when(buscadorCnae.buscarPorCodigo("6201-5/01")).thenReturn(Optional.of(CNAE_6201));
             when(repository.save(any(CadastroSecundario.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -180,6 +181,86 @@ class CadastroSecundarioServiceImplTest {
                     .extracting("errorCode").isEqualTo(esperado);
 
             verifyNoInteractions(buscadorCnae, repository);
+        }
+    }
+
+    @Nested
+    @DisplayName("cadastrar (item 6) - CNPJ duplicado")
+    class CnpjDuplicado {
+
+        private final CadastroSecundarioRequest request =
+                new CadastroSecundarioRequest("Tech Porto", "12345678000195", "6201-5/01");
+
+        @Test
+        @DisplayName("CNPJ ainda nao cadastrado: grava normalmente")
+        void cnpjNovoGrava() {
+            when(buscadorCnae.buscarPorCodigo("6201-5/01")).thenReturn(Optional.of(CNAE_6201));
+            when(repository.existsByDocumento("12345678000195")).thenReturn(false);
+            when(repository.save(any(CadastroSecundario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            service.cadastrar(request);
+
+            verify(repository).save(any(CadastroSecundario.class));
+        }
+
+        @Test
+        @DisplayName("CNPJ ja cadastrado: CADSEC-NEG-0002 e nada e gravado")
+        void cnpjJaCadastrado() {
+            when(buscadorCnae.buscarPorCodigo("6201-5/01")).thenReturn(Optional.of(CNAE_6201));
+            when(repository.existsByDocumento("12345678000195")).thenReturn(true);
+
+            assertThatThrownBy(() -> service.cadastrar(request))
+                    .isInstanceOf(ApplicationException.class)
+                    .hasMessage(ErrorCode.CADSEC_NEG_0002.getMensagem())
+                    .extracting("errorCode").isEqualTo(ErrorCode.CADSEC_NEG_0002);
+
+            verify(repository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("mensagem do 409 nao ecoa o CNPJ")
+        void mensagemNaoEcoaCnpj() {
+            when(buscadorCnae.buscarPorCodigo("6201-5/01")).thenReturn(Optional.of(CNAE_6201));
+            when(repository.existsByDocumento("12345678000195")).thenReturn(true);
+
+            assertThatThrownBy(() -> service.cadastrar(request)).message().doesNotContain("12345678000195");
+        }
+
+        @Test
+        @DisplayName("CNAE inexistente e verificado antes da duplicidade (422 prevalece)")
+        void cnaeInexistenteAntesDaDuplicidade() {
+            when(buscadorCnae.buscarPorCodigo("6201-5/01")).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.cadastrar(request))
+                    .extracting("errorCode").isEqualTo(ErrorCode.CADSEC_NEG_0001);
+
+            verify(repository, never()).existsByDocumento(any());
+        }
+
+        @Test
+        @DisplayName("concorrencia: unique do banco barra o save e vira o mesmo CADSEC-NEG-0002")
+        void concorrenciaViraConflito() {
+            when(buscadorCnae.buscarPorCodigo("6201-5/01")).thenReturn(Optional.of(CNAE_6201));
+            when(repository.existsByDocumento("12345678000195")).thenReturn(false, true);
+            when(repository.save(any(CadastroSecundario.class)))
+                    .thenThrow(new DataIntegrityViolationException("unique documento"));
+
+            assertThatThrownBy(() -> service.cadastrar(request))
+                    .isInstanceOf(ApplicationException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.CADSEC_NEG_0002);
+        }
+
+        @Test
+        @DisplayName("outra violacao de integridade (nao e duplicidade) nao e mascarada")
+        void outraViolacaoPropagada() {
+            when(buscadorCnae.buscarPorCodigo("6201-5/01")).thenReturn(Optional.of(CNAE_6201));
+            when(repository.existsByDocumento("12345678000195")).thenReturn(false, false);
+            when(repository.save(any(CadastroSecundario.class)))
+                    .thenThrow(new DataIntegrityViolationException("outra constraint"));
+
+            assertThatThrownBy(() -> service.cadastrar(request))
+                    .isInstanceOf(DataIntegrityViolationException.class)
+                    .hasMessage("outra constraint");
         }
     }
 

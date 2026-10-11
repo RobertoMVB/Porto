@@ -17,6 +17,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.contains;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -151,13 +152,134 @@ class CadastroSecundarioControllerTest {
                     .andExpect(jsonPath("$.code").value("CNAE-VAL-0006"));
         }
 
+    }
+
+    @Nested
+    @DisplayName("POST /api/cadastros-secundarios - validacao dos campos (item 6)")
+    class Validacao {
+
+        private static final String URL = "/api/cadastros-secundarios";
+
         @Test
-        @DisplayName("400 (sem code) para JSON malformado: tratado pelo Spring, nao chega ao servico")
-        void jsonMalformado() throws Exception {
-            mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content("{invalido"))
-                    .andExpect(status().isBadRequest());
+        @DisplayName("1 campo invalido: code do campo e errors com 1 item")
+        void umCampoInvalido() throws Exception {
+            mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON)
+                            .content(body("Tech Porto", "12345678909", "6201-5/01")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.code").value("CADSEC-VAL-0005"))
+                    .andExpect(jsonPath("$.detail").value(ErrorCode.CADSEC_VAL_0005.getMensagem()))
+                    .andExpect(jsonPath("$.errors.length()").value(1))
+                    .andExpect(jsonPath("$.errors[0].campo").value("documento"))
+                    .andExpect(jsonPath("$.errors[0].code").value("CADSEC-VAL-0005"))
+                    .andExpect(jsonPath("$.errors[0].mensagem").value(ErrorCode.CADSEC_VAL_0005.getMensagem()));
 
             verify(service, never()).cadastrar(any());
+        }
+
+        @Test
+        @DisplayName("3 campos invalidos: code do primeiro e errors em ordem de declaracao")
+        void tresCamposInvalidos() throws Exception {
+            mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON)
+                            .content(body(" ", "12.345.678/0001-95", "6201501")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("CADSEC-VAL-0001"))
+                    .andExpect(jsonPath("$.detail").value("A requisicao possui 3 campos invalidos."))
+                    .andExpect(jsonPath("$.errors.length()").value(3))
+                    .andExpect(jsonPath("$.errors[0].campo").value("nomeFantasia"))
+                    .andExpect(jsonPath("$.errors[0].code").value("CADSEC-VAL-0001"))
+                    .andExpect(jsonPath("$.errors[1].campo").value("documento"))
+                    .andExpect(jsonPath("$.errors[1].code").value("CADSEC-VAL-0004"))
+                    .andExpect(jsonPath("$.errors[2].campo").value("codigoCnae"))
+                    .andExpect(jsonPath("$.errors[2].code").value("CNAE-VAL-0006"));
+
+            verify(service, never()).cadastrar(any());
+        }
+
+        @Test
+        @DisplayName("corpo {}: os tres obrigatorios em errors")
+        void corpoVazioObjeto() throws Exception {
+            mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("CADSEC-VAL-0001"))
+                    .andExpect(jsonPath("$.errors[*].code")
+                            .value(contains("CADSEC-VAL-0001", "CADSEC-VAL-0003", "CNAE-VAL-0004")));
+        }
+
+        @Test
+        @DisplayName("so codigoCnae ausente: code continua CNAE-VAL-0004 (contrato do item 5 mantido)")
+        void soCodigoAusenteMantemContrato() throws Exception {
+            mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"nomeFantasia\":\"Tech Porto\",\"documento\":\"12345678000195\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("CNAE-VAL-0004"))
+                    .andExpect(jsonPath("$.errors[0].campo").value("codigoCnae"));
+        }
+
+        @Test
+        @DisplayName("nome com 121 caracteres: CADSEC-VAL-0002")
+        void nomeLongo() throws Exception {
+            mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON)
+                            .content(body("a".repeat(121), "12345678000195", "6201-5/01")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("CADSEC-VAL-0002"));
+        }
+
+        @Test
+        @DisplayName("valores sao normalizados antes de chegar ao servico (strip + maiusculas)")
+        void normalizaAntesDoServico() throws Exception {
+            when(service.cadastrar(any())).thenReturn(
+                    new CadastroSecundarioResponse(1L, "Tech Porto", "12ABC34501DE35", CNAE_6201));
+
+            mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON)
+                            .content(body("  Tech Porto ", " 12abc34501de35 ", " 6201-5/01 ")))
+                    .andExpect(status().isCreated());
+
+            verify(service).cadastrar(new CadastroSecundarioRequest("Tech Porto", "12ABC34501DE35", "6201-5/01"));
+        }
+
+        @Test
+        @DisplayName("409 CADSEC-NEG-0002 quando o servico detecta CNPJ duplicado (sem errors)")
+        void cnpjDuplicado() throws Exception {
+            when(service.cadastrar(any())).thenThrow(new ApplicationException(ErrorCode.CADSEC_NEG_0002));
+
+            mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON)
+                            .content(body("Tech Porto", "12345678000195", "6201-5/01")))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("CADSEC-NEG-0002"))
+                    .andExpect(jsonPath("$.errors").doesNotExist());
+        }
+
+        @Test
+        @DisplayName("400 GEN-VAL-0005 para JSON malformado, sem chegar ao servico")
+        void jsonMalformado() throws Exception {
+            mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content("{invalido"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("GEN-VAL-0005"))
+                    .andExpect(jsonPath("$.detail").value(ErrorCode.GEN_VAL_0005.getMensagem()));
+
+            verify(service, never()).cadastrar(any());
+        }
+
+        @Test
+        @DisplayName("400 GEN-VAL-0005 para corpo ausente")
+        void corpoAusente() throws Exception {
+            mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("GEN-VAL-0005"));
+        }
+
+        @Test
+        @DisplayName("400 GEN-VAL-0005 para array no lugar de objeto")
+        void arrayNoLugarDeObjeto() throws Exception {
+            mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content("[]"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("GEN-VAL-0005"));
+        }
+
+        private static String body(String nomeFantasia, String documento, String codigoCnae) {
+            return "{\"nomeFantasia\":\"%s\",\"documento\":\"%s\",\"codigoCnae\":\"%s\"}"
+                    .formatted(nomeFantasia, documento, codigoCnae);
         }
     }
 }

@@ -44,6 +44,34 @@ Regras:
 }
 ```
 
+### Erros de validacao do corpo (`errors`)
+
+Quando um ou mais campos do JSON sao invalidos, a resposta traz a lista `errors`, com **de 1 a N itens** (um por campo invalido):
+
+- `code` (raiz) e o codigo do **primeiro** erro, na ordem de declaracao dos campos. Ex.: no cadastro secundario, `nomeFantasia` → `documento` → `codigoCnae`.
+- `detail` e a mensagem do erro, quando ha um so; com mais de um, informa a quantidade.
+- Cada campo aparece **uma vez**, com o erro mais basico (ex.: "obrigatorio" antes de "tamanho").
+- Respostas que nao sao de validacao de campo (404, 409, 422, 500, JSON malformado) **nao** trazem `errors`.
+
+```json
+{
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "A requisicao possui 2 campos invalidos.",
+  "instance": "/api/cadastros-secundarios",
+  "code": "CADSEC-VAL-0001",
+  "errors": [
+    { "campo": "nomeFantasia", "code": "CADSEC-VAL-0001", "mensagem": "O nome fantasia deve ser informado." },
+    { "campo": "documento",    "code": "CADSEC-VAL-0005", "mensagem": "O documento informado e um CPF. O cadastro secundario aceita apenas CNPJ." }
+  ]
+}
+```
+
+No log, todos os codigos aparecem em `errors=` (sem os valores enviados), para metricas por campo:
+```
+errorCode=CADSEC-VAL-0001 status=400 path=/api/cadastros-secundarios detail="O nome fantasia deve ser informado." errors=CADSEC-VAL-0001,CADSEC-VAL-0005
+```
+
 ## Codigos
 
 ### Genericos (`GEN`)
@@ -54,6 +82,7 @@ Regras:
 | `GEN-VAL-0002` | 400 | Parametro com tipo ou formato invalido | Valor que nao pode ser convertido (ex.: `page=abc`). O `detail` informa qual. | Cliente: corrigir o valor. |
 | `GEN-VAL-0003` | 400 | Numero da pagina invalido | `page` negativo. | Cliente: usar `page >= 0`. |
 | `GEN-VAL-0004` | 400 | Tamanho da pagina invalido | `size` menor que 1 ou maior que 100. | Cliente: usar `size` entre 1 e 100. |
+| `GEN-VAL-0005` | 400 | Corpo da requisicao ausente ou malformado | POST sem corpo, JSON com erro de sintaxe, ou array no lugar de objeto. A mensagem tecnica do parser nao e devolvida nem logada (pode conter trechos do corpo). | Cliente: enviar um JSON de objeto valido. |
 | `GEN-INT-0001` | 500 | Erro interno inesperado | Excecao nao tratada (banco indisponivel, bug, etc.). O cliente recebe mensagem generica; o detalhe tecnico e o stack trace ficam apenas no log, em nivel `ERROR`. | Time: investigar o log pelo `path` e horario. Alta frequencia indica incidente. |
 
 ### CNAE (`CNAE`)
@@ -70,6 +99,14 @@ Regras:
 
 ### Cadastro secundario (`CADSEC`)
 
+Campos do `POST /api/cadastros-secundarios`. Os valores passam por normalizacao antes da validacao: espacos das pontas sao removidos (`strip()`) e o documento vai para maiusculas.
+
 | Codigo | HTTP | Significado | Causa provavel | Acao |
 |---|---|---|---|---|
+| `CADSEC-VAL-0001` | 400 | Nome fantasia nao informado | `nomeFantasia` ausente, nulo, vazio ou so com espacos. | Cliente: informar o nome. |
+| `CADSEC-VAL-0002` | 400 | Nome fantasia acima de 120 caracteres | Mais de 120 caracteres (contados apos remover os espacos das pontas), o tamanho da coluna. | Cliente: reduzir o nome. |
+| `CADSEC-VAL-0003` | 400 | Documento nao informado | `documento` ausente, nulo, vazio ou so com espacos. | Cliente: informar o CNPJ. |
+| `CADSEC-VAL-0004` | 400 | Documento com formato invalido | Nao segue `[A-Z0-9]{12}[0-9]{2}`: tamanho diferente de 14, caractere especial, **mascara** (`12.345.678/0001-95`) ou letra nos 2 ultimos digitos. Aceita CNPJ numerico e **alfanumerico** (vigente desde jul/2026). O digito verificador **nao** e validado. | Cliente: enviar o CNPJ so com letras e numeros, sem pontuacao. |
+| `CADSEC-VAL-0005` | 400 | Documento e um CPF | 11 digitos, com ou sem a mascara `000.000.000-00`. O cadastro secundario aceita apenas CNPJ. | Cliente: informar o CNPJ da empresa. Alta frequencia pode indicar formulario aceitando pessoa fisica. |
 | `CADSEC-NEG-0001` | 422 | Cadastro rejeitado: CNAE inexistente | `POST /api/cadastros-secundarios` com `codigoCnae` em formato valido, mas nao cadastrado. **Nada e gravado.** E 422, e nao 404, porque o endpoint existe e o JSON e valido; o que falha e a referencia ao CNAE. | Cliente: validar o CNAE antes (`GET /api/cadastros-secundarios/validar-cnae`). Time: alta frequencia indica problema de integracao no cliente (tabela de CNAE desatualizada). |
+| `CADSEC-NEG-0002` | 409 | CNPJ ja cadastrado | Ja existe cadastro secundario com o mesmo `documento` (comparado apos normalizacao: espacos e maiusculas). **Nada e gravado.** Garantido tambem por constraint `unique` no banco, para requisicoes simultaneas. O CNPJ nao aparece na resposta nem no log. | Cliente: consultar o cadastro existente em vez de criar outro. |

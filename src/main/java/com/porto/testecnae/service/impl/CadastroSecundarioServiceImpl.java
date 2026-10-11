@@ -11,6 +11,7 @@ import com.porto.testecnae.repository.CadastroSecundarioRepository;
 import com.porto.testecnae.service.BuscadorCnae;
 import com.porto.testecnae.service.CadastroSecundarioService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -25,6 +26,9 @@ public class CadastroSecundarioServiceImpl implements CadastroSecundarioService 
     @Override
     public CadastroSecundarioResponse cadastrar(CadastroSecundarioRequest request) {
         var cnae = buscarCnaeParaCadastro(request.codigoCnae());
+        if (repository.existsByDocumento(request.documento())) {
+            throw new ApplicationException(ErrorCode.CADSEC_NEG_0002);
+        }
 
         var cadastro = CadastroSecundario.builder()
                 .nomeFantasia(request.nomeFantasia())
@@ -32,7 +36,7 @@ public class CadastroSecundarioServiceImpl implements CadastroSecundarioService 
                 .cnae(cnae)
                 .build();
 
-        return CadastroSecundarioResponse.fromEntity(repository.save(cadastro));
+        return CadastroSecundarioResponse.fromEntity(salvar(cadastro));
     }
 
     @Override
@@ -46,6 +50,21 @@ public class CadastroSecundarioServiceImpl implements CadastroSecundarioService 
                 .stream()
                 .map(CadastroSecundarioResponse::fromEntity)
                 .toList();
+    }
+
+    /**
+     * Duas requisicoes simultaneas com o mesmo CNPJ podem passar pelo {@code existsByDocumento}; a constraint
+     * unique do banco barra a segunda. Traduz para o mesmo 409, sem mascarar outras violacoes de integridade.
+     */
+    private CadastroSecundario salvar(CadastroSecundario cadastro) {
+        try {
+            return repository.save(cadastro);
+        } catch (DataIntegrityViolationException ex) {
+            if (repository.existsByDocumento(cadastro.getDocumento())) {
+                throw new ApplicationException(ErrorCode.CADSEC_NEG_0002);
+            }
+            throw ex;
+        }
     }
 
     // 422 e nao 404: o recurso /cadastros-secundarios existe; o que falha e a referencia no corpo da requisicao

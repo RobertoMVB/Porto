@@ -50,6 +50,12 @@ Comportamento esperado:
 - `POST /api/cadastros-secundarios` deve criar um cadastro vinculado a um CNAE existente.
 - `GET /api/cadastros-secundarios/validar-cnae?codigoCnae={codigo}` deve validar se o CNAE informado pode ser usado no cadastro (inexistente: 404 `CNAE-NEG-0001`).
 - Cadastros secundários com CNAE inexistente nao devem ser criados (422 `CADSEC-NEG-0001`).
+- Validacao do `POST /api/cadastros-secundarios` (espacos das pontas sao removidos antes):
+  - `nomeFantasia`: obrigatorio, ate 120 caracteres.
+  - `documento`: obrigatorio, CNPJ com 14 caracteres sem mascara, numerico ou alfanumerico (letras minusculas sao convertidas). CPF e rejeitado com erro especifico (`CADSEC-VAL-0005`). O digito verificador nao e validado.
+  - `codigoCnae`: obrigatorio, formato `NNNN-N/NN`.
+  - Campos invalidos retornam 400 com a lista `errors` (um item por campo).
+  - Nao pode haver dois cadastros com o mesmo CNPJ (409 `CADSEC-NEG-0002`).
 
 Erros sao retornados no formato Problem Details (RFC 9457), com um codigo no campo `code`. Veja o significado de cada codigo em [docs/error-codes.md](docs/error-codes.md).
 

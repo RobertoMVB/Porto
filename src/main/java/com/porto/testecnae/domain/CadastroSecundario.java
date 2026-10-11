@@ -31,7 +31,8 @@ public class CadastroSecundario {
     @Column(nullable = false, length = 120)
     private String nomeFantasia;
 
-    @Column(nullable = false, length = 14)
+    // unique: garante a regra "um cadastro por CNPJ" mesmo com requisicoes concorrentes
+    @Column(nullable = false, length = 14, unique = true)
     private String documento;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

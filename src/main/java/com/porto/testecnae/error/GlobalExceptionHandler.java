@@ -7,6 +7,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -52,6 +54,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             TypeMismatchException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         var detalhe = "Parametro '%s' com valor invalido.".formatted(ex.getPropertyName());
         return responder(ErrorCode.GEN_VAL_0002, detalhe, detalhe, path(request), ex);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        var erros = errorMapper.toErrosCampo(ex.getBindingResult());
+        var path = path(request);
+        errorMapper.log(erros, path);
+        var problem = errorMapper.toProblemDetail(erros, path);
+        return ResponseEntity.status(problem.getStatus()).body(problem);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        // A mensagem do Jackson pode conter trechos do corpo enviado: nao vai para a resposta nem para o log
+        var errorCode = ErrorCode.GEN_VAL_0005;
+        return responder(errorCode, errorCode.getMensagem(), errorCode.getMensagem(), path(request), ex);
     }
 
     private ResponseEntity<Object> responder(
