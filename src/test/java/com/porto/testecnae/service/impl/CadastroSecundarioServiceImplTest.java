@@ -18,7 +18,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -265,22 +268,80 @@ class CadastroSecundarioServiceImplTest {
     }
 
     @Nested
-    @DisplayName("listarTodos (inalterado)")
+    @DisplayName("listarTodos (item 7)")
     class ListarTodos {
 
         @Test
-        @DisplayName("converte os cadastros em DTO")
-        void converteEmDto() {
+        @DisplayName("usa listarComCnae (join fetch) e converte em DTO")
+        void usaJoinFetchEConverte() {
             var cadastro = CadastroSecundario.builder()
                     .id(1L).nomeFantasia("Tech Porto").documento("12345678000199").cnae(CNAE_6201).build();
-            when(repository.findAll()).thenReturn(List.of(cadastro));
+            when(repository.listarComCnae()).thenReturn(List.of(cadastro));
 
             assertThat(service.listarTodos())
                     .singleElement()
                     .satisfies(r -> {
                         assertThat(r.nomeFantasia()).isEqualTo("Tech Porto");
                         assertThat(r.cnae().codigo()).isEqualTo("6201-5/01");
+                        assertThat(r.cnae().descricao()).isEqualTo(CNAE_6201.getDescricao());
                     });
+        }
+
+        @Test
+        @DisplayName("nao usa findAll (que carregaria o CNAE de forma lazy, uma consulta por cadastro)")
+        void naoUsaFindAll() {
+            when(repository.listarComCnae()).thenReturn(List.of());
+
+            service.listarTodos();
+
+            verify(repository, never()).findAll();
+        }
+
+        @Test
+        @DisplayName("sem cadastros: lista vazia")
+        void listaVazia() {
+            when(repository.listarComCnae()).thenReturn(List.of());
+
+            assertThat(service.listarTodos()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("falha do repositorio e propagada sem ser mascarada")
+        void falhaPropagada() {
+            when(repository.listarComCnae()).thenThrow(new IllegalStateException("banco fora"));
+
+            assertThatThrownBy(() -> service.listarTodos())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("banco fora");
+        }
+    }
+
+    @Nested
+    @DisplayName("configuracao transacional (item 7)")
+    class Transacao {
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"listarTodos", "validarCnae"})
+        @DisplayName("metodos de leitura sao @Transactional(readOnly = true)")
+        void leituraReadOnly(String metodo) {
+            var transactional = metodoPorNome(metodo).getAnnotation(Transactional.class);
+
+            assertThat(transactional).as("@Transactional em %s", metodo).isNotNull();
+            assertThat(transactional.readOnly()).isTrue();
+        }
+
+        @Test
+        @DisplayName("cadastrar NAO e @Transactional (a confirmacao de duplicidade apos violacao da unique depende disso)")
+        void cadastrarSemTransacao() {
+            assertThat(metodoPorNome("cadastrar").getAnnotation(Transactional.class)).isNull();
+            assertThat(CadastroSecundarioServiceImpl.class.getAnnotation(Transactional.class)).isNull();
+        }
+
+        private static Method metodoPorNome(String nome) {
+            return Arrays.stream(CadastroSecundarioServiceImpl.class.getDeclaredMethods())
+                    .filter(m -> m.getName().equals(nome) && !m.isSynthetic())
+                    .findFirst()
+                    .orElseThrow();
         }
     }
 }

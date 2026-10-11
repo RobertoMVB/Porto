@@ -7,17 +7,25 @@ import com.porto.testecnae.error.ApplicationException;
 import com.porto.testecnae.error.ErrorCode;
 import com.porto.testecnae.error.ErrorMapper;
 import com.porto.testecnae.service.CadastroSecundarioService;
+import org.hibernate.LazyInitializationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.InvalidDataAccessResourceUsageException;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.CannotCreateTransactionException;
+
+import java.util.List;
 
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -280,6 +288,81 @@ class CadastroSecundarioControllerTest {
         private static String body(String nomeFantasia, String documento, String codigoCnae) {
             return "{\"nomeFantasia\":\"%s\",\"documento\":\"%s\",\"codigoCnae\":\"%s\"}"
                     .formatted(nomeFantasia, documento, codigoCnae);
+        }
+    }
+    @Nested
+    @DisplayName("GET /api/cadastros-secundarios e falhas de infraestrutura (item 7)")
+    class Listar {
+
+        private static final String URL = "/api/cadastros-secundarios";
+
+        @Test
+        @DisplayName("200 com a lista e o CNAE de cada cadastro")
+        void lista() throws Exception {
+            when(service.listarTodos()).thenReturn(List.of(
+                    new CadastroSecundarioResponse(1L, "Tech Porto", "12345678000195", CNAE_6201)));
+
+            mockMvc.perform(get(URL))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(1))
+                    .andExpect(jsonPath("$[0].cnae.codigo").value("6201-5/01"))
+                    .andExpect(jsonPath("$[0].cnae.descricao").value(CNAE_6201.descricao()));
+        }
+
+        @Test
+        @DisplayName("200 com lista vazia")
+        void listaVazia() throws Exception {
+            when(service.listarTodos()).thenReturn(List.of());
+
+            mockMvc.perform(get(URL))
+                    .andExpect(status().isOk())
+                    .andExpect(content().json("[]"));
+        }
+
+        @Test
+        @DisplayName("LazyInitializationException: 500 GEN-INT-0002 sem vazar detalhe tecnico")
+        void lazyInitialization() throws Exception {
+            when(service.listarTodos()).thenThrow(new LazyInitializationException(
+                    "Could not initialize proxy [AtividadeEconomicaCnae#5] - no session"));
+
+            mockMvc.perform(get(URL))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.code").value("GEN-INT-0002"))
+                    .andExpect(jsonPath("$.detail").value(ErrorCode.GEN_INT_0002.getMensagem()))
+                    .andExpect(content().string(not(containsString("proxy"))));
+        }
+
+        @Test
+        @DisplayName("CannotCreateTransactionException: 503 GEN-INT-0003")
+        void transacaoNaoAberta() throws Exception {
+            when(service.listarTodos()).thenThrow(new CannotCreateTransactionException("Could not open JPA EntityManager"));
+
+            mockMvc.perform(get(URL))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.code").value("GEN-INT-0003"))
+                    .andExpect(jsonPath("$.detail").value(ErrorCode.GEN_INT_0003.getMensagem()))
+                    .andExpect(content().string(not(containsString("EntityManager"))));
+        }
+
+        @Test
+        @DisplayName("CannotGetJdbcConnectionException (sem conexao com o banco): 503 GEN-INT-0003")
+        void semConexao() throws Exception {
+            when(service.validarCnae("6201-5/01")).thenThrow(
+                    new CannotGetJdbcConnectionException("Failed to obtain JDBC Connection"));
+
+            mockMvc.perform(get(URL + "/validar-cnae").param("codigoCnae", "6201-5/01"))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.code").value("GEN-INT-0003"));
+        }
+
+        @Test
+        @DisplayName("outra falha de acesso a dados continua 500 GEN-INT-0001 (nao vira 503)")
+        void outraFalhaContinuaGenerica() throws Exception {
+            when(service.listarTodos()).thenThrow(new InvalidDataAccessResourceUsageException("SQL grammar"));
+
+            mockMvc.perform(get(URL))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.code").value("GEN-INT-0001"));
         }
     }
 }
