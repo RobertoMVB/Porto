@@ -13,7 +13,7 @@
 
     <groupId>com.porto</groupId>
     <artifactId>teste-cnae</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>teste-cnae</name>
     <description>Microservico para teste tecnico de LT e Analista</description>
 
