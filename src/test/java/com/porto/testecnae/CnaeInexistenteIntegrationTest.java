@@ -193,12 +193,12 @@ class CnaeInexistenteIntegrationTest {
         }
 
         @Test
-        @DisplayName("FORA DO ESCOPO (item 6): CNAE valido sem nomeFantasia continua 500 GEN-INT-0001")
-        void item6AindaPendente() throws Exception {
+        @DisplayName("item 6: CNAE valido sem nomeFantasia agora e 400 CADSEC-VAL-0001 (antes: 500)")
+        void item6Corrigido() throws Exception {
             mockMvc.perform(post(URL_CADASTRO).contentType(MediaType.APPLICATION_JSON)
                             .content("{\"documento\":\"12345678000199\",\"codigoCnae\":\"6201-5/01\"}"))
-                    .andExpect(status().isInternalServerError())
-                    .andExpect(jsonPath("$.code").value("GEN-INT-0001"));
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("CADSEC-VAL-0001"));
         }
     }
 
