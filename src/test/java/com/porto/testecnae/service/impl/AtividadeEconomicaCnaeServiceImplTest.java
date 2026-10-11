@@ -48,6 +48,41 @@ class AtividadeEconomicaCnaeServiceImplTest {
     private AtividadeEconomicaCnaeServiceImpl service;
 
     @Nested
+    @DisplayName("listarTodas (item 8)")
+    class ListarTodas {
+
+        @Test
+        @DisplayName("converte todas as entidades em DTO, campo a campo, na ordem do repositorio")
+        void converteTodas() {
+            when(repository.findAll()).thenReturn(List.of(CNAE_6201, CNAE_6202));
+
+            assertThat(service.listarTodas())
+                    .extracting("id", "codigo", "descricao", "secao")
+                    .containsExactly(
+                            tuple(5L, "6201-5/01", CNAE_6201.getDescricao(), "Tecnologia"),
+                            tuple(6L, "6202-3/00", CNAE_6202.getDescricao(), "Tecnologia"));
+        }
+
+        @Test
+        @DisplayName("sem CNAEs: lista vazia")
+        void listaVazia() {
+            when(repository.findAll()).thenReturn(List.of());
+
+            assertThat(service.listarTodas()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("falha do repositorio e propagada sem ser mascarada")
+        void falhaPropagada() {
+            when(repository.findAll()).thenThrow(new IllegalStateException("banco fora"));
+
+            assertThatThrownBy(() -> service.listarTodas())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("banco fora");
+        }
+    }
+
+    @Nested
     @DisplayName("buscarPorDescricao - cenarios positivos")
     class BuscarPorDescricaoPositivo {
 

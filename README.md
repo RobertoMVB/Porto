@@ -18,6 +18,14 @@ Projeto Spring Boot criado para avaliacao de candidatos a vagas de Lider Tecnico
 mvn spring-boot:run
 ```
 
+Testes e cobertura:
+
+```bash
+mvn verify
+```
+
+Executa todos os testes e gera o relatorio de cobertura (JaCoCo) em `target/site/jacoco/index.html`. O build falha se a cobertura ficar abaixo de 95% das linhas ou 90% dos branches.
+
 H2 Console:
 
 ```text
@@ -57,7 +65,7 @@ Comportamento esperado:
   - Campos invalidos retornam 400 com a lista `errors` (um item por campo).
   - Nao pode haver dois cadastros com o mesmo CNPJ (409 `CADSEC-NEG-0002`).
 
-Erros sao retornados no formato Problem Details (RFC 9457), com um codigo no campo `code`. Veja o significado de cada codigo em [docs/error-codes.md](docs/error-codes.md).
+Erros sao retornados no formato Problem Details (RFC 9457), **sempre** com um codigo no campo `code` (inclusive 404, 405, 406 e 415). A API responde apenas em `application/json`. Veja o significado de cada codigo em [docs/error-codes.md](docs/error-codes.md).
 
 Exemplo:
 

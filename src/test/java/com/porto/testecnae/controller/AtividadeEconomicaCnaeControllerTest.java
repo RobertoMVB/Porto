@@ -15,9 +15,12 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.CannotCreateTransactionException;
 
 import java.util.List;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -40,6 +43,57 @@ class AtividadeEconomicaCnaeControllerTest {
 
     @MockitoBean
     private AtividadeEconomicaCnaeService service;
+
+    @Nested
+    @DisplayName("GET /api/cnaes (item 8)")
+    class ListarTodas {
+
+        @Test
+        @DisplayName("200 com todos os CNAEs e todos os campos")
+        void lista() throws Exception {
+            when(service.listarTodas()).thenReturn(List.of(CNAE_6201));
+
+            mockMvc.perform(get("/api/cnaes"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                    .andExpect(jsonPath("$.length()").value(1))
+                    .andExpect(jsonPath("$[0].id").value(5))
+                    .andExpect(jsonPath("$[0].codigo").value("6201-5/01"))
+                    .andExpect(jsonPath("$[0].descricao").value(CNAE_6201.descricao()))
+                    .andExpect(jsonPath("$[0].secao").value("Tecnologia"));
+        }
+
+        @Test
+        @DisplayName("200 com lista vazia")
+        void listaVazia() throws Exception {
+            when(service.listarTodas()).thenReturn(List.of());
+
+            mockMvc.perform(get("/api/cnaes"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().json("[]"));
+        }
+
+        @Test
+        @DisplayName("500 GEN-INT-0001 em erro inesperado, sem vazar detalhe")
+        void erroInesperado() throws Exception {
+            when(service.listarTodas()).thenThrow(new IllegalStateException("detalhe interno"));
+
+            mockMvc.perform(get("/api/cnaes"))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.code").value("GEN-INT-0001"))
+                    .andExpect(content().string(not(containsString("detalhe interno"))));
+        }
+
+        @Test
+        @DisplayName("503 GEN-INT-0003 com banco indisponivel")
+        void bancoIndisponivel() throws Exception {
+            when(service.listarTodas()).thenThrow(new CannotCreateTransactionException("sem conexao"));
+
+            mockMvc.perform(get("/api/cnaes"))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.code").value("GEN-INT-0003"));
+        }
+    }
 
     @Nested
     @DisplayName("GET /api/cnaes/buscar")
@@ -232,6 +286,27 @@ class AtividadeEconomicaCnaeControllerTest {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("GEN-VAL-0002"))
                     .andExpect(jsonPath("$.detail").value("Parametro 'page' com valor invalido."));
+
+            verify(service, never()).listarPaginado(anyInt(), anyInt());
+        }
+
+        @Test
+        @DisplayName("400 GEN-VAL-0003 quando o servico rejeita a pagina")
+        void paginaInvalida() throws Exception {
+            when(service.listarPaginado(-1, 20)).thenThrow(new ApplicationException(ErrorCode.GEN_VAL_0003));
+
+            mockMvc.perform(get("/api/cnaes/paginado").param("page", "-1"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("GEN-VAL-0003"));
+        }
+
+        @Test
+        @DisplayName("400 GEN-VAL-0002 quando size nao e numerico")
+        void sizeNaoNumerico() throws Exception {
+            mockMvc.perform(get("/api/cnaes/paginado").param("size", "abc"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("GEN-VAL-0002"))
+                    .andExpect(jsonPath("$.detail").value("Parametro 'size' com valor invalido."));
 
             verify(service, never()).listarPaginado(anyInt(), anyInt());
         }
