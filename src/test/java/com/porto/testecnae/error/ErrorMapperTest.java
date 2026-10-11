@@ -11,6 +11,7 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
+import org.springframework.validation.BindingResult;
 
 import java.net.URI;
 import java.util.Arrays;
@@ -19,6 +20,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(OutputCaptureExtension.class)
 class ErrorMapperTest {
@@ -116,6 +119,18 @@ class ErrorMapperTest {
         }
 
         @Test
+        @DisplayName("um erro por campo independe da ordem em que as violacoes chegam")
+        void umErroPorCampoOrdemInversa() {
+            var binding = binding(
+                    erro("nomeFantasia", "CADSEC_VAL_0001"),
+                    erro("nomeFantasia", "CADSEC_VAL_0002"));
+
+            assertThat(mapper.toErrosCampo(binding))
+                    .singleElement()
+                    .extracting(ErroCampo::code).isEqualTo("CADSEC-VAL-0001");
+        }
+
+        @Test
         @DisplayName("mensagem fora do catalogo vira GEN-VAL-0002, sem quebrar")
         void mensagemForaDoCatalogo() {
             assertThat(mapper.toErrosCampo(binding(erro("documento", "must not be blank"))))
@@ -169,6 +184,32 @@ class ErrorMapperTest {
             assertThat(output).contains(
                     "errorCode=CADSEC-VAL-0001 status=400 path=/api/cadastros-secundarios",
                     "errors=CADSEC-VAL-0001,CADSEC-VAL-0005");
+        }
+
+        @Test
+        @DisplayName("objeto validado que nao e record: ordena pela ordem dos campos declarados")
+        void alvoNaoRecord() {
+            var binding = new BeanPropertyBindingResult(new ClasseComum(), "request");
+            binding.addError(erro("segundo", "CADSEC_VAL_0003"));
+            binding.addError(erro("primeiro", "CADSEC_VAL_0001"));
+
+            assertThat(mapper.toErrosCampo(binding)).extracting(ErroCampo::campo).containsExactly("primeiro", "segundo");
+        }
+
+        @Test
+        @DisplayName("sem objeto validado (target nulo): nao quebra e mantem os erros")
+        void alvoNulo() {
+            var binding = mock(BindingResult.class);
+            when(binding.getTarget()).thenReturn(null);
+            when(binding.getFieldErrors()).thenReturn(List.of(erro("documento", "CADSEC_VAL_0004")));
+
+            assertThat(mapper.toErrosCampo(binding)).extracting(ErroCampo::code).containsExactly("CADSEC-VAL-0004");
+        }
+
+        @SuppressWarnings("unused")
+        static class ClasseComum {
+            private String primeiro;
+            private String segundo;
         }
 
         private BeanPropertyBindingResult binding(FieldError... erros) {
