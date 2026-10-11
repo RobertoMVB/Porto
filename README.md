@@ -31,6 +31,7 @@ Password:
 
 ```http
 GET /api/cnaes
+GET /api/cnaes/paginado?page=0&size=20
 GET /api/cnaes/buscar?termo=programas
 GET /api/cnaes/codigo?codigo=6201-5/01
 GET /api/cadastros-secundarios
@@ -41,12 +42,15 @@ POST /api/cadastros-secundarios
 Comportamento esperado:
 
 - `GET /api/cnaes` deve retornar todas as atividades cadastradas.
-- `GET /api/cnaes/buscar?termo={texto}` deve buscar CNAEs que contenham o texto informado em qualquer parte da descricao, ignorando maiusculas e minusculas.
+- `GET /api/cnaes/paginado?page={n}&size={n}` deve listar todas as atividades paginadas, ordenadas por codigo (`page` padrao 0, `size` padrao 20, maximo 100).
+- `GET /api/cnaes/buscar?termo={texto}` deve buscar CNAEs que contenham o texto informado em qualquer parte da descricao, ignorando maiusculas e minusculas. Os caracteres `%` e `_` sao tratados como texto literal. Termo vazio ou com mais de 180 caracteres e rejeitado com 400.
 - `GET /api/cnaes/codigo?codigo={codigo}` deve retornar o CNAE do codigo informado.
 - Codigos CNAE inexistentes devem retornar uma resposta HTTP adequada para recurso nao encontrado.
 - `POST /api/cadastros-secundarios` deve criar um cadastro vinculado a um CNAE existente.
 - `GET /api/cadastros-secundarios/validar-cnae?codigoCnae={codigo}` deve validar se o CNAE informado pode ser usado no cadastro.
 - Cadastros secundários com CNAE inexistente nao devem ser criados.
+
+Erros sao retornados no formato Problem Details (RFC 9457), com um codigo no campo `code`. Veja o significado de cada codigo em [docs/error-codes.md](docs/error-codes.md).
 
 Exemplo:
 
