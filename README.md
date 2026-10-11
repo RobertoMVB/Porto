@@ -43,7 +43,7 @@ Comportamento esperado:
 
 - `GET /api/cnaes` deve retornar todas as atividades cadastradas.
 - `GET /api/cnaes/paginado?page={n}&size={n}` deve listar todas as atividades paginadas, ordenadas por codigo (`page` padrao 0, `size` padrao 20, maximo 100).
-- `GET /api/cnaes/buscar?termo={texto}` deve buscar CNAEs que contenham o texto informado em qualquer parte da descricao, ignorando maiusculas e minusculas. Os caracteres `%` e `_` sao tratados como texto literal. Termo vazio ou com mais de 180 caracteres e rejeitado com 400.
+- `GET /api/cnaes/buscar?termo={texto}` deve buscar CNAEs que contenham o texto informado em qualquer parte da descricao, ignorando maiusculas e minusculas. Espacos no inicio e no fim do termo sao desconsiderados. Os caracteres `%` e `_` sao tratados como texto literal. Termo vazio ou com mais de 180 caracteres e rejeitado com 400.
 - `GET /api/cnaes/codigo?codigo={codigo}` deve retornar o CNAE do codigo informado.
 - Codigos CNAE inexistentes devem retornar uma resposta HTTP adequada para recurso nao encontrado.
 - `POST /api/cadastros-secundarios` deve criar um cadastro vinculado a um CNAE existente.

@@ -144,11 +144,11 @@ class AtividadeEconomicaCnaeRepositoryTest {
     }
 
     /**
-     * O termo nao sofre trim (decisao pendente). Estes testes documentam o impacto dos espacos
-     * para apoiar a avaliacao futura.
+     * O repositorio busca o termo literalmente, inclusive espacos. Estes testes mostram por que o service
+     * remove os espacos das pontas antes de chamar o repositorio.
      */
     @Nested
-    @DisplayName("impacto de espacos no termo (sem trim)")
+    @DisplayName("repositorio nao normaliza espacos (responsabilidade do service)")
     class Espacos {
 
         @Test

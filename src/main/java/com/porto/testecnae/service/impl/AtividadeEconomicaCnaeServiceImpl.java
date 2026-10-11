@@ -48,9 +48,9 @@ public class AtividadeEconomicaCnaeServiceImpl implements AtividadeEconomicaCnae
 
     @Override
     public List<AtividadeEconomicaCnaeResponse> buscarPorDescricao(String termo) {
-        validarTermo(termo);
+        var termoNormalizado = normalizarTermo(termo);
 
-        return repository.buscarPorDescricaoContendo(termo)
+        return repository.buscarPorDescricaoContendo(termoNormalizado)
                 .stream()
                 .map(AtividadeEconomicaCnaeResponse::fromEntity)
                 .toList();
@@ -63,17 +63,25 @@ public class AtividadeEconomicaCnaeServiceImpl implements AtividadeEconomicaCnae
                 .orElseGet(() -> AtividadeEconomicaCnaeResponse.fromEntity(repository.findAll().getFirst()));
     }
 
-    // O termo nao sofre trim: espacos fazem parte da busca (decisao pendente de avaliacao).
-    private static void validarTermo(String termo) {
+    /**
+     * Remove espacos das pontas e valida o termo. Sem isso, " Cultivo" ou "encomenda " deixariam de
+     * encontrar CNAEs cuja descricao comeca ou termina com a palavra.
+     * <p>
+     * Usa {@link String#strip()} (espacos Unicode, mesmo criterio de {@link String#isBlank()}).
+     * Espacos internos sao mantidos.
+     */
+    private static String normalizarTermo(String termo) {
         if (termo == null) {
             throw new ApplicationException(ErrorCode.CNAE_VAL_0001);
         }
-        if (termo.isBlank()) {
+        var termoNormalizado = termo.strip();
+        if (termoNormalizado.isEmpty()) {
             throw new ApplicationException(ErrorCode.CNAE_VAL_0002);
         }
-        if (termo.length() > TAMANHO_MAXIMO_TERMO) {
+        if (termoNormalizado.length() > TAMANHO_MAXIMO_TERMO) {
             throw new ApplicationException(ErrorCode.CNAE_VAL_0003,
                     "O termo de busca deve ter no maximo %d caracteres.".formatted(TAMANHO_MAXIMO_TERMO));
         }
+        return termoNormalizado;
     }
 }

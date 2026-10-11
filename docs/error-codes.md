@@ -60,4 +60,4 @@ Regras:
 |---|---|---|---|---|
 | `CNAE-VAL-0001` | 400 | Termo de busca nao informado | O servico de busca recebeu `termo` nulo. Pela API, a ausencia do parametro gera `GEN-VAL-0001`; este codigo protege chamadas internas ao servico. | Time: verificar quem chama o servico sem termo. |
 | `CNAE-VAL-0002` | 400 | Termo de busca vazio | `termo` vazio ou so com espacos (ex.: `?termo=`, `?termo=%20`). Para listar todos os CNAEs, use `GET /api/cnaes/paginado`. | Cliente: informar um termo ou usar a listagem paginada. |
-| `CNAE-VAL-0003` | 400 | Termo de busca acima do tamanho maximo | `termo` com mais de 180 caracteres, o tamanho da coluna `descricao`. Um termo maior nunca encontraria resultado. | Cliente: reduzir o termo. |
+| `CNAE-VAL-0003` | 400 | Termo de busca acima do tamanho maximo | `termo` com mais de 180 caracteres (contados apos remover os espacos das pontas), o tamanho da coluna `descricao`. Um termo maior nunca encontraria resultado. | Cliente: reduzir o termo. |
