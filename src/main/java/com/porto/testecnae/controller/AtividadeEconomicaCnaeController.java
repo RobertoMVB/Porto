@@ -1,6 +1,7 @@
 package com.porto.testecnae.controller;
 
 import com.porto.testecnae.dto.AtividadeEconomicaCnaeResponse;
+import com.porto.testecnae.dto.PaginaResponse;
 import com.porto.testecnae.service.AtividadeEconomicaCnaeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +21,13 @@ public class AtividadeEconomicaCnaeController {
     @GetMapping
     public List<AtividadeEconomicaCnaeResponse> listarTodas() {
         return service.listarTodas();
+    }
+
+    @GetMapping("/paginado")
+    public PaginaResponse<AtividadeEconomicaCnaeResponse> listarPaginado(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return service.listarPaginado(page, size);
     }
 
     @GetMapping("/buscar")
